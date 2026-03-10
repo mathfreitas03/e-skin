@@ -9,12 +9,12 @@ class Navbar extends StatelessWidget implements PreferredSizeWidget {
   final String assetLogoPath; // ex: 'assets/images/logo_teste.jpg'
 
   const Navbar({
-    Key? key,
+    super.key,
     required this.onConnect,
     required this.status,
     this.title = 'Minha App BLE',
     this.assetLogoPath = 'assets/images/logo_teste.jpg',
-  }) : super(key: key);
+  });
 
   Color _statusColor() {
     switch (status) {
@@ -24,8 +24,7 @@ class Navbar extends StatelessWidget implements PreferredSizeWidget {
       case ConnectionStatus.scanning:
         return Colors.yellow;
       case ConnectionStatus.disconnected:
-      default:
-        return Colors.red;
+      return Colors.red;
     }
   }
 
@@ -38,8 +37,7 @@ class Navbar extends StatelessWidget implements PreferredSizeWidget {
       case ConnectionStatus.connecting:
         return 'Conectando...';
       case ConnectionStatus.disconnected:
-      default:
-        return 'Conectar';
+      return 'Conectar';
     }
   }
 
