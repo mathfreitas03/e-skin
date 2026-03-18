@@ -12,7 +12,7 @@ class Navbar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.onConnect,
     required this.status,
-    this.title = 'Minha App BLE',
+    this.title = 'EGluco App',
     this.assetLogoPath = 'assets/images/logo_teste.jpg',
   });
 
@@ -44,7 +44,7 @@ class Navbar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.blue,
+      backgroundColor: Colors.green,
       elevation: 2,
       title: Row(
         children: [

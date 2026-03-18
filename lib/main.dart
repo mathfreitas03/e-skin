@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'ble_controllerv3.dart';
+import 'widgets/ble_controllerv3.dart';
 import 'package:e_skin/permissions.dart';
 import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
@@ -23,9 +23,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
+      theme: ThemeData.light(),
+      darkTheme: ThemeData.dark(),
+      themeMode: ThemeMode.system, 
       debugShowCheckedModeBanner: false,
-      home: MainLayout(),
+      home: const MainLayout(),
     );
   }
 }
@@ -389,7 +392,7 @@ class _MainLayoutState extends State<MainLayout> {
       )
 
           : const Center(
-        child:Text("Conecte ao ESP32 para ver os dados"),
+        child:Text("Conecte ao dispositivo para ver os dados"),
       ),
 
       bottomNavigationBar:Container(
