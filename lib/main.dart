@@ -395,7 +395,7 @@ class _MainLayoutState extends State<MainLayout> {
         child:Text("Conecte ao dispositivo para ver os dados"),
       ),
 
-      bottomNavigationBar:Container(
+      bottomNavigationBar: SafeArea(child: Container(
         padding: const EdgeInsets.all(12),
         color: Colors.grey.shade200,
 
@@ -415,7 +415,7 @@ class _MainLayoutState extends State<MainLayout> {
 
           child: const Text("Teste LED"),
         ),
-      ),
+      )),
     );
   }
 }
