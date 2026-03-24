@@ -46,6 +46,8 @@ class _MainLayoutState extends State<MainLayout> {
 
   ConnectionStatus connStatus = ConnectionStatus.disconnected;
 
+  int _currentIndex = 0;
+
   /// DADOS IZ
   List<double> _freqData = [];
   List<double> _realData = [];
@@ -66,7 +68,6 @@ class _MainLayoutState extends State<MainLayout> {
   void initState() {
     super.initState();
 
-    /// ESCUTA STREAM BLE
     _bleSubscription = ble.messageStream.listen((block) {
       _processIzBlock(block);
     });
@@ -80,11 +81,9 @@ class _MainLayoutState extends State<MainLayout> {
     super.dispose();
   }
 
-  /// PROCESSA BLOCO IZ RECEBIDO
   void _processIzBlock(String block) {
 
     final clean = block.replaceAll("@", "");
-
     final parts = clean.split(",");
 
     if (parts.length < 4) return;
@@ -117,7 +116,6 @@ class _MainLayoutState extends State<MainLayout> {
     print("IZ recebido: ${freq.length} pontos");
   }
 
-  /// CONEXÃO BLE
   Future<void> onConnectPressed() async {
 
     if (connStatus == ConnectionStatus.connected ||
@@ -167,7 +165,6 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
-  /// CONVERTE PARA SPOTS DO GRÁFICO
   List<FlSpot> _spots(List<double> x, List<double> y) {
 
     List<FlSpot> spots = [];
@@ -181,7 +178,6 @@ class _MainLayoutState extends State<MainLayout> {
     return spots;
   }
 
-  /// CARD DE GRÁFICO
   Widget _buildGraphCard(
       String title,
       String unit,
@@ -247,7 +243,6 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  /// ENVIA COMANDO IZ
   Future<void> _sendControlCommand(int dataset) async {
 
     final command = "IZ${dataset}F";
@@ -259,11 +254,127 @@ class _MainLayoutState extends State<MainLayout> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
+  /// HOME CONTENT EXTRAÍDO
+  Widget _buildHomeContent() {
 
     final realSpots = _spots(_freqData,_realData);
     final imagSpots = _spots(_freqData,_imagData);
+
+    return connStatus == ConnectionStatus.connected
+        ? Padding(
+            padding: const EdgeInsets.all(12),
+            child: ListView(
+              children: [
+
+                SizedBox(
+                  height:220,
+                  child:_buildGraphCard(
+                      "Real(Z) vs Frequência",
+                      "Ω",
+                      realSpots,
+                      Colors.red),
+                ),
+
+                const SizedBox(height:12),
+
+                SizedBox(
+                  height:220,
+                  child:_buildGraphCard(
+                      "Imag(Z) vs Frequência",
+                      "Ω",
+                      imagSpots,
+                      Colors.green),
+                ),
+
+                const SizedBox(height:12),
+
+                GridView.count(
+                  crossAxisCount:2,
+                  crossAxisSpacing:12,
+                  mainAxisSpacing:12,
+                  shrinkWrap:true,
+                  physics: const NeverScrollableScrollPhysics(),
+
+                  children:[
+
+                    Card(
+                      elevation:4,
+                      child:Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children:[
+
+                          const Text("Temperatura",
+                              style:TextStyle(fontWeight: FontWeight.bold)),
+
+                          Text("${_temperature.toStringAsFixed(1)} °C",
+                              style: const TextStyle(fontSize:28)),
+
+                          const SizedBox(height:10),
+
+                          const Text("Pressão",
+                              style:TextStyle(fontWeight: FontWeight.bold)),
+
+                          Text("$_pressure g",
+                              style: const TextStyle(fontSize:28)),
+
+                        ],
+                      ),
+                    ),
+
+                    Card(
+                      elevation:4,
+                      child:Padding(
+                        padding: const EdgeInsets.all(12),
+                        child:Column(
+                          children:[
+
+                            const Text("Dataset IZ",
+                                style:TextStyle(fontWeight: FontWeight.bold)),
+
+                            const SizedBox(height:10),
+
+                            DropdownButton<int>(
+                              isExpanded:true,
+                              value:_selectedDataset,
+
+                              onChanged:(v){
+                                if(v==null) return;
+
+                                setState(()=>_selectedDataset=v);
+                                _sendControlCommand(v);
+                              },
+
+                              items:List.generate(6,(i){
+                                final d=i+1;
+                                return DropdownMenuItem(
+                                    value:d,
+                                    child:Text("Dataset $d (IZ${d}F)")
+                                );
+                              }),
+                            ),
+
+                            const SizedBox(height:8),
+
+                            Text("Último comando: $_controlConfirmation",
+                                style: const TextStyle(fontSize:12))
+
+                          ],
+                        ),
+                      ),
+                    )
+
+                  ],
+                )
+              ],
+            ),
+          )
+        : const Center(
+            child:Text("Conecte ao dispositivo para ver os dados"),
+          );
+  }
+
+  @override
+  Widget build(BuildContext context) {
 
     return Scaffold(
 
@@ -275,148 +386,59 @@ class _MainLayoutState extends State<MainLayout> {
         assetLogoPath: 'assets/images/logo_teste.jpg',
       ),
 
-      body: connStatus == ConnectionStatus.connected
-          ? Padding(
-        padding: const EdgeInsets.all(12),
-
-        child: ListView(
-          children: [
-
-            SizedBox(
-              height:220,
-              child:_buildGraphCard(
-                  "Real(Z) vs Frequência",
-                  "Ω",
-                  realSpots,
-                  Colors.red),
-            ),
-
-            const SizedBox(height:12),
-
-            SizedBox(
-              height:220,
-              child:_buildGraphCard(
-                  "Imag(Z) vs Frequência",
-                  "Ω",
-                  imagSpots,
-                  Colors.green),
-            ),
-
-            const SizedBox(height:12),
-
-            GridView.count(
-              crossAxisCount:2,
-              crossAxisSpacing:12,
-              mainAxisSpacing:12,
-              shrinkWrap:true,
-              physics: const NeverScrollableScrollPhysics(),
-
-              children:[
-
-                Card(
-                  elevation:4,
-                  child:Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children:[
-
-                      const Text("Temperatura",
-                          style:TextStyle(fontWeight: FontWeight.bold)),
-
-                      Text("${_temperature.toStringAsFixed(1)} °C",
-                          style: const TextStyle(fontSize:28)),
-
-                      const SizedBox(height:10),
-
-                      const Text("Pressão",
-                          style:TextStyle(fontWeight: FontWeight.bold)),
-
-                      Text("$_pressure g",
-                          style: const TextStyle(fontSize:28)),
-
-                    ],
-                  ),
-                ),
-
-                Card(
-                  elevation:4,
-                  child:Padding(
-                    padding: const EdgeInsets.all(12),
-
-                    child:Column(
-                      children:[
-
-                        const Text("Dataset IZ",
-                            style:TextStyle(fontWeight: FontWeight.bold)),
-
-                        const SizedBox(height:10),
-
-                        DropdownButton<int>(
-                          isExpanded:true,
-                          value:_selectedDataset,
-
-                          onChanged:(v){
-
-                            if(v==null) return;
-
-                            setState(()=>_selectedDataset=v);
-
-                            _sendControlCommand(v);
-                          },
-
-                          items:List.generate(6,(i){
-
-                            final d=i+1;
-
-                            return DropdownMenuItem(
-                                value:d,
-                                child:Text("Dataset $d (IZ${d}F)")
-                            );
-
-                          }),
-                        ),
-
-                        const SizedBox(height:8),
-
-                        Text("Último comando: $_controlConfirmation",
-                            style: const TextStyle(fontSize:12))
-
-                      ],
-                    ),
-                  ),
-                )
-
-              ],
-            )
-          ],
-        ),
-      )
-
-          : const Center(
-        child:Text("Conecte ao dispositivo para ver os dados"),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          _buildHomeContent(),
+          const Center(child: Text("Tela de Estatísticas")),
+          const Center(child: Text("Tela de Usuário")),
+        ],
       ),
 
-      bottomNavigationBar:SafeArea(
-        child: Container(
-        padding: const EdgeInsets.all(12),
-        color: Colors.grey.shade200,
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
 
-        child:ElevatedButton(
+              IconButton(
+                icon: Icon(
+                  size: 32,
+                  Icons.home,
+                  color: _currentIndex == 0 ? Colors.green : Colors.grey,
+                ),
+                onPressed: () {
+                  setState(() => _currentIndex = 0);
+                },
+              ),
 
-          onPressed:() async{
+              IconButton(
+                icon: Icon(
+                  size: 32,
+                  Icons.bar_chart,
+                  color: _currentIndex == 1 ? Colors.green : Colors.grey,
+                ),
+                onPressed: () {
+                  setState(() => _currentIndex = 1);
+                },
+              ),
 
-            final state = await ble.writeLed(1);
+              IconButton(
+                icon: Icon(
+                  size: 32,
+                  Icons.person,
+                  color: _currentIndex == 2 ? Colors.green : Colors.grey,
+                ),
+                onPressed: () {
+                  setState(() => _currentIndex = 2);
+                },
+              ),
 
-            ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("LED ligado: $state")));
-
-            await Future.delayed(const Duration(seconds:1));
-
-            await ble.writeLed(0);
-          },
-
-          child: const Text("Teste LED"),
+            ],
+          ),
         ),
-      )),
+      ),
     );
   }
 }
