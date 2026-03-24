@@ -11,7 +11,7 @@ class BottomNavbar extends StatelessWidget {
   });
 
   Color _color(int index) {
-    return currentIndex == index ? Colors.blue : Colors.grey;
+    return currentIndex == index ? Colors.green : Colors.grey;
   }
 
   @override
@@ -23,15 +23,15 @@ class BottomNavbar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
-              icon: Icon(Icons.home, color: _color(0)),
+              icon: Icon(Icons.home, color: _color(0), size: 32,),
               onPressed: () => onTap(0),
             ),
             IconButton(
-              icon: Icon(Icons.bar_chart, color: _color(1)),
+              icon: Icon(Icons.bar_chart, color: _color(1), size: 32,),
               onPressed: () => onTap(1),
             ),
             IconButton(
-              icon: Icon(Icons.person, color: _color(2)),
+              icon: Icon(Icons.person, color: _color(2), size: 32,),
               onPressed: () => onTap(2),
             ),
           ],

@@ -58,7 +58,7 @@ class BleController {
     }
   }
 
-  // ===== NOTIFICATION HANDLER (igual ao Python) =====
+  // ===== NOTIFICATION HANDLER (igual a versão do Python) =====
   Future<void> _startNotificationListener() async {
     final characteristic = QualifiedCharacteristic(
       deviceId: esp32!.id,
@@ -114,7 +114,7 @@ class BleController {
       await Future.delayed(const Duration(milliseconds: 5));
     }
 
-    print("📤 TX: $text");
+    print("TX: $text");
   }
 
   // ===== PARSER DE DADOS (igual _handle_completed_block) =====

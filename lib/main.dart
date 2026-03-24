@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'widgets/ble_controllerv3.dart';
 import 'package:e_skin/permissions.dart';
 import 'dart:async';
-import 'package:fl_chart/fl_chart.dart';
 
 import 'package:e_skin/widgets/navbar.dart';
 import 'package:e_skin/models/connection_status.dart';
+
+import 'screens/home_screen.dart';
+import 'screens/stats_screen.dart';
+import 'screens/user_screen.dart';
+import 'widgets/bottom_navbar.dart';
+import 'controllers/iz_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,9 +29,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: ThemeData.light(),
+      theme: ThemeMode.system == ThemeMode.dark ? ThemeData.dark() : ThemeData.light(),
       darkTheme: ThemeData.dark(),
-      themeMode: ThemeMode.system, 
+      themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
       home: const MainLayout(),
     );
@@ -43,17 +48,12 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
 
   final BleController ble = BleController();
+  final IzController iz = IzController();
 
   ConnectionStatus connStatus = ConnectionStatus.disconnected;
 
   int _currentIndex = 0;
 
-  /// DADOS IZ
-  List<double> _freqData = [];
-  List<double> _realData = [];
-  List<double> _imagData = [];
-
-  /// SENSOR
   double _temperature = 0;
   int _pressure = 0;
 
@@ -69,7 +69,8 @@ class _MainLayoutState extends State<MainLayout> {
     super.initState();
 
     _bleSubscription = ble.messageStream.listen((block) {
-      _processIzBlock(block);
+      iz.process(block);
+      setState(() {});
     });
   }
 
@@ -79,41 +80,6 @@ class _MainLayoutState extends State<MainLayout> {
     _tempSubscription?.cancel();
     _pressSubscription?.cancel();
     super.dispose();
-  }
-
-  void _processIzBlock(String block) {
-
-    final clean = block.replaceAll("@", "");
-    final parts = clean.split(",");
-
-    if (parts.length < 4) return;
-
-    List<double> real = [];
-    List<double> imag = [];
-    List<double> freq = [];
-
-    for (int i = 1; i < parts.length; i += 3) {
-
-      if (i + 2 >= parts.length) break;
-
-      final r = double.tryParse(parts[i]);
-      final im = double.tryParse(parts[i + 1]);
-      final f = double.tryParse(parts[i + 2]);
-
-      if (r != null && im != null && f != null) {
-        real.add(r);
-        imag.add(im);
-        freq.add(f);
-      }
-    }
-
-    setState(() {
-      _realData = real;
-      _imagData = imag;
-      _freqData = freq;
-    });
-
-    print("IZ recebido: ${freq.length} pontos");
   }
 
   Future<void> onConnectPressed() async {
@@ -165,88 +131,8 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
-  List<FlSpot> _spots(List<double> x, List<double> y) {
-
-    List<FlSpot> spots = [];
-
-    int min = x.length < y.length ? x.length : y.length;
-
-    for (int i = 0; i < min; i++) {
-      spots.add(FlSpot(x[i], y[i]));
-    }
-
-    return spots;
-  }
-
-  Widget _buildGraphCard(
-      String title,
-      String unit,
-      List<FlSpot> spots,
-      Color color) {
-
-    if (spots.isEmpty) {
-      return const Center(child: Text("Aguardando dados IZ..."));
-    }
-
-    double minX = spots.map((e) => e.x).reduce((a,b)=>a<b?a:b);
-    double maxX = spots.map((e) => e.x).reduce((a,b)=>a>b?a:b);
-    double minY = spots.map((e) => e.y).reduce((a,b)=>a<b?a:b);
-    double maxY = spots.map((e) => e.y).reduce((a,b)=>a>b?a:b);
-
-    return Card(
-      elevation:4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child:Padding(
-        padding: const EdgeInsets.all(12),
-        child:Column(
-          children:[
-            Text(title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey)),
-            const SizedBox(height:8),
-            Expanded(
-              child:LineChart(
-                LineChartData(
-                  minX:minX,
-                  maxX:maxX,
-                  minY:minY*0.95,
-                  maxY:maxY*1.05,
-                  gridData: const FlGridData(show:true),
-                  titlesData: FlTitlesData(
-                    bottomTitles:AxisTitles(
-                        axisNameWidget: const Text("Freq (Hz)"),
-                        sideTitles:SideTitles(showTitles:true)),
-                    leftTitles:AxisTitles(
-                        axisNameWidget: Text(unit),
-                        sideTitles:SideTitles(showTitles:true)),
-                    rightTitles: const AxisTitles(
-                        sideTitles:SideTitles(showTitles:false)),
-                    topTitles: const AxisTitles(
-                        sideTitles:SideTitles(showTitles:false)),
-                  ),
-                  lineBarsData:[
-                    LineChartBarData(
-                      spots:spots,
-                      isCurved:true,
-                      color:color,
-                      barWidth:2,
-                      dotData: const FlDotData(show:false),
-                    )
-                  ],
-                ),
-              ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _sendControlCommand(int dataset) async {
-
     final command = "IZ${dataset}F";
-
     await ble.sendMessage(command);
 
     setState(() {
@@ -254,131 +140,10 @@ class _MainLayoutState extends State<MainLayout> {
     });
   }
 
-  /// HOME CONTENT EXTRAÍDO
-  Widget _buildHomeContent() {
-
-    final realSpots = _spots(_freqData,_realData);
-    final imagSpots = _spots(_freqData,_imagData);
-
-    return connStatus == ConnectionStatus.connected
-        ? Padding(
-            padding: const EdgeInsets.all(12),
-            child: ListView(
-              children: [
-
-                SizedBox(
-                  height:220,
-                  child:_buildGraphCard(
-                      "Real(Z) vs Frequência",
-                      "Ω",
-                      realSpots,
-                      Colors.red),
-                ),
-
-                const SizedBox(height:12),
-
-                SizedBox(
-                  height:220,
-                  child:_buildGraphCard(
-                      "Imag(Z) vs Frequência",
-                      "Ω",
-                      imagSpots,
-                      Colors.green),
-                ),
-
-                const SizedBox(height:12),
-
-                GridView.count(
-                  crossAxisCount:2,
-                  crossAxisSpacing:12,
-                  mainAxisSpacing:12,
-                  shrinkWrap:true,
-                  physics: const NeverScrollableScrollPhysics(),
-
-                  children:[
-
-                    Card(
-                      elevation:4,
-                      child:Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children:[
-
-                          const Text("Temperatura",
-                              style:TextStyle(fontWeight: FontWeight.bold)),
-
-                          Text("${_temperature.toStringAsFixed(1)} °C",
-                              style: const TextStyle(fontSize:28)),
-
-                          const SizedBox(height:10),
-
-                          const Text("Pressão",
-                              style:TextStyle(fontWeight: FontWeight.bold)),
-
-                          Text("$_pressure g",
-                              style: const TextStyle(fontSize:28)),
-
-                        ],
-                      ),
-                    ),
-
-                    Card(
-                      elevation:4,
-                      child:Padding(
-                        padding: const EdgeInsets.all(12),
-                        child:Column(
-                          children:[
-
-                            const Text("Dataset IZ",
-                                style:TextStyle(fontWeight: FontWeight.bold)),
-
-                            const SizedBox(height:10),
-
-                            DropdownButton<int>(
-                              isExpanded:true,
-                              value:_selectedDataset,
-
-                              onChanged:(v){
-                                if(v==null) return;
-
-                                setState(()=>_selectedDataset=v);
-                                _sendControlCommand(v);
-                              },
-
-                              items:List.generate(6,(i){
-                                final d=i+1;
-                                return DropdownMenuItem(
-                                    value:d,
-                                    child:Text("Dataset $d (IZ${d}F)")
-                                );
-                              }),
-                            ),
-
-                            const SizedBox(height:8),
-
-                            Text("Último comando: $_controlConfirmation",
-                                style: const TextStyle(fontSize:12))
-
-                          ],
-                        ),
-                      ),
-                    )
-
-                  ],
-                )
-              ],
-            ),
-          )
-        : const Center(
-            child:Text("Conecte ao dispositivo para ver os dados"),
-          );
-  }
-
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
-
-      backgroundColor: Colors.white,
 
       appBar: Navbar(
         onConnect: onConnectPressed,
@@ -389,55 +154,28 @@ class _MainLayoutState extends State<MainLayout> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          _buildHomeContent(),
-          const Center(child: Text("Tela de Estatísticas")),
-          const Center(child: Text("Tela de Usuário")),
+
+          HomeScreen(
+            connStatus: connStatus,
+            iz: iz,
+            temperature: _temperature,
+            pressure: _pressure,
+            selectedDataset: _selectedDataset,
+            controlConfirmation: _controlConfirmation,
+            onDatasetChanged: (v) {
+              setState(() => _selectedDataset = v);
+              _sendControlCommand(v);
+            },
+          ),
+
+          const StatsScreen(),
+          const UserScreen(),
         ],
       ),
 
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-
-              IconButton(
-                icon: Icon(
-                  size: 32,
-                  Icons.home,
-                  color: _currentIndex == 0 ? Colors.green : Colors.grey,
-                ),
-                onPressed: () {
-                  setState(() => _currentIndex = 0);
-                },
-              ),
-
-              IconButton(
-                icon: Icon(
-                  size: 32,
-                  Icons.bar_chart,
-                  color: _currentIndex == 1 ? Colors.green : Colors.grey,
-                ),
-                onPressed: () {
-                  setState(() => _currentIndex = 1);
-                },
-              ),
-
-              IconButton(
-                icon: Icon(
-                  size: 32,
-                  Icons.person,
-                  color: _currentIndex == 2 ? Colors.green : Colors.grey,
-                ),
-                onPressed: () {
-                  setState(() => _currentIndex = 2);
-                },
-              ),
-
-            ],
-          ),
-        ),
+      bottomNavigationBar: BottomNavbar(
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
       ),
     );
   }
