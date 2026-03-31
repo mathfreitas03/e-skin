@@ -10,7 +10,7 @@ class IzController {
   void process(String block) {
 
     final clean = block.replaceAll("@", "");
-    final parts = clean.split(",");
+    final parts = clean.split("&");
 
     if (parts.length < 4) return;
 
