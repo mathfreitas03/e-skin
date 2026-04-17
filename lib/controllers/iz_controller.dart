@@ -1,30 +1,32 @@
-// Description: Controller for processing impedance data from a string block.
-// Descrição: Controlador para processar dados de impedância a partir de um bloco de string.
-
 class IzController {
-
   List<double> real = [];
   List<double> imag = [];
   List<double> freq = [];
 
-  void process(String block) {
-
-    final clean = block.replaceAll("@", "");
-    final parts = clean.split("&");
-
-    if (parts.length < 4) return;
-
+  void process(String raw) {
     real = [];
     imag = [];
     freq = [];
 
-    for (int i = 1; i < parts.length; i += 3) {
+    // 🔥 pega só até o primeiro bloco completo
+    final block = raw.contains("@") ? raw.split("@").first : raw;
 
-      if (i + 2 >= parts.length) break;
+    // 🔥 quebra linha corretamente (Windows/Linux)
+    final lines = block.split(RegExp(r'\r?\n'));
 
-      final r = double.tryParse(parts[i]);
-      final im = double.tryParse(parts[i + 1]);
-      final f = double.tryParse(parts[i + 2]);
+    for (var line in lines) {
+      final cleanLine = line.trim();
+
+      if (!cleanLine.contains("&")) continue;
+
+      // 🔥 split seguro ignorando espaços
+      final parts = cleanLine.split("&").map((e) => e.trim()).toList();
+
+      if (parts.length < 3) continue;
+
+      final r = double.tryParse(parts[0]);
+      final im = double.tryParse(parts[1]);
+      final f = double.tryParse(parts[2]);
 
       if (r != null && im != null && f != null) {
         real.add(r);
@@ -32,5 +34,32 @@ class IzController {
         freq.add(f);
       }
     }
+
+    if (freq.isEmpty) {
+      print("ERRO: Nenhum dado IZ encontrado");
+      return;
+    }
+
+    // 🔥 ordena por frequência
+    final data = List.generate(freq.length, (i) {
+      return {
+        "f": freq[i],
+        "r": real[i],
+        "i": imag[i],
+      };
+    });
+
+    data.sort((a, b) => (a["f"] as double).compareTo(b["f"] as double));
+
+    freq = data.map((e) => e["f"] as double).toList();
+    real = data.map((e) => e["r"] as double).toList();
+    imag = data.map((e) => e["i"] as double).toList();
+
+    // 🔥 DEBUG
+    print("DEBUG IZ:");
+    print("freq: ${freq.length}");
+    print("real: ${real.length}");
+    print("imag: ${imag.length}");
   }
+
 }
