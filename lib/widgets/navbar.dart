@@ -1,6 +1,6 @@
 // lib/ui/navbar.dart
 import 'package:flutter/material.dart';
-import 'package:e_skin/models/connection_status.dart';
+import 'package:eprobe/models/connection_status.dart';
 
 class Navbar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onConnect;

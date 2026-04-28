@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'controllers/ble_controller.dart';
-import 'package:e_skin/permissions.dart';
+import 'package:eprobe/permissions.dart';
 import 'dart:async';
 
-import 'package:e_skin/widgets/navbar.dart';
-import 'package:e_skin/models/connection_status.dart';
+import 'package:eprobe/widgets/navbar.dart';
+import 'package:eprobe/models/connection_status.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/stats_screen.dart';

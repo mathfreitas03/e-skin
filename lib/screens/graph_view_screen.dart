@@ -49,7 +49,7 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               RadioListTile<String>(
-                title: const Text("Logarítmico"),
+                title: const Text("Logarítmica"),
                 value: 'logarithmic',
                 groupValue: xAxis,
                 onChanged: (value) {
@@ -58,7 +58,7 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
                 },
               ),
               RadioListTile<String>(
-                title: const Text("Numérico"),
+                title: const Text("Numérica"),
                 value: 'numeric',
                 groupValue: xAxis,
                 onChanged: (value) {
