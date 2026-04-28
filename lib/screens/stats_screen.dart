@@ -7,7 +7,7 @@ class StatsScreen extends StatelessWidget {
   const StatsScreen({super.key});
 
   final List<String> logs = const [
-    "ble_communication_20260330_213100.txt",
+    "log1.txt",
     "log2.txt",
     "log3.txt",
     "log4.txt",
@@ -23,8 +23,9 @@ class StatsScreen extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (_) => GraphViewScreen(
-          title: fileName,
+          title: ("Dataset $fileName"),
           iz: iz,
+          xAxis: 'logarithmic',
         ),
       ),
     );
@@ -55,7 +56,7 @@ class StatsScreen extends StatelessWidget {
                   const Icon(Icons.show_chart, size: 40),
                   const SizedBox(height: 10),
                   Text(
-                    file,
+                    file.split('.')[0].toUpperCase(),
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),

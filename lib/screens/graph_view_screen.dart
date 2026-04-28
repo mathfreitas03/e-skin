@@ -3,15 +3,30 @@ import 'package:fl_chart/fl_chart.dart';
 import '../controllers/iz_controller.dart';
 import '../widgets/graph_card.dart';
 
-class GraphViewScreen extends StatelessWidget {
+class GraphViewScreen extends StatefulWidget {
   final IzController iz;
   final String title;
+  final String xAxis;
 
   const GraphViewScreen({
     super.key,
     required this.iz,
     required this.title,
+    required this.xAxis,
   });
+
+  @override
+  State<GraphViewScreen> createState() => _GraphViewScreenState();
+}
+
+class _GraphViewScreenState extends State<GraphViewScreen> {
+  late String xAxis;
+
+  @override
+  void initState() {
+    super.initState();
+    xAxis = widget.xAxis;
+  }
 
   List<FlSpot> _spots(List<double> x, List<double> y) {
     List<FlSpot> s = [];
@@ -24,21 +39,72 @@ class GraphViewScreen extends StatelessWidget {
     return s;
   }
 
+  void _showAxisDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Escala do eixo X"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<String>(
+                title: const Text("Logarítmico"),
+                value: 'logarithmic',
+                groupValue: xAxis,
+                onChanged: (value) {
+                  setState(() => xAxis = value!);
+                  Navigator.pop(context);
+                },
+              ),
+              RadioListTile<String>(
+                title: const Text("Numérico"),
+                value: 'numeric',
+                groupValue: xAxis,
+                onChanged: (value) {
+                  setState(() => xAxis = value!);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final realSpots = _spots(iz.freq, iz.real);
-    final imagSpots = _spots(iz.freq, iz.imag);
+    final realSpots = _spots(widget.iz.freq, widget.iz.real);
+    final imagSpots = _spots(widget.iz.freq, widget.iz.imag);
 
-    if (iz.freq.isEmpty) {
+    final List<ChartData> realData =
+        realSpots.map((e) => ChartData(e.x, e.y)).toList();
+
+    final List<ChartData> imagData =
+        imagSpots.map((e) => ChartData(e.x, e.y)).toList();
+
+    if (widget.iz.freq.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text(title)),
+        appBar: AppBar(
+          title: Text(widget.title),
+        ),
         body: const Center(
           child: Text("Nenhum dado encontrado no arquivo"),
         ),
       );
     }
+
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: [
+          IconButton(
+            onPressed: _showAxisDialog,
+            icon: const Icon(Icons.settings),
+          )
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(12),
         child: ListView(
@@ -48,10 +114,9 @@ class GraphViewScreen extends StatelessWidget {
               child: GraphCard(
                 title: "Real(Z)",
                 unit: "Ω",
-                spots: realSpots,
+                data: realData,
                 color: Colors.red,
-                
-                
+                axis: xAxis,
               ),
             ),
             const SizedBox(height: 12),
@@ -60,8 +125,9 @@ class GraphViewScreen extends StatelessWidget {
               child: GraphCard(
                 title: "Imag(Z)",
                 unit: "Ω",
-                spots: imagSpots,
+                data: imagData,
                 color: Colors.green,
+                axis: xAxis,
               ),
             ),
           ],

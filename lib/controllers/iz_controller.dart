@@ -8,10 +8,10 @@ class IzController {
     imag = [];
     freq = [];
 
-    // 🔥 pega só até o primeiro bloco completo
+    //  pega só até o primeiro bloco completo
     final block = raw.contains("@") ? raw.split("@").first : raw;
 
-    // 🔥 quebra linha corretamente (Windows/Linux)
+    //  quebra linha corretamente (Windows/Linux)
     final lines = block.split(RegExp(r'\r?\n'));
 
     for (var line in lines) {
@@ -19,7 +19,7 @@ class IzController {
 
       if (!cleanLine.contains("&")) continue;
 
-      // 🔥 split seguro ignorando espaços
+      //  split seguro ignorando espaços
       final parts = cleanLine.split("&").map((e) => e.trim()).toList();
 
       if (parts.length < 3) continue;
@@ -40,7 +40,7 @@ class IzController {
       return;
     }
 
-    // 🔥 ordena por frequência
+    //  ordena por frequência
     final data = List.generate(freq.length, (i) {
       return {
         "f": freq[i],
@@ -55,7 +55,7 @@ class IzController {
     real = data.map((e) => e["r"] as double).toList();
     imag = data.map((e) => e["i"] as double).toList();
 
-    // 🔥 DEBUG
+    //  DEBUG
     print("DEBUG IZ:");
     print("freq: ${freq.length}");
     print("real: ${real.length}");

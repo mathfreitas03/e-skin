@@ -31,7 +31,7 @@ class BottomNavbar extends StatelessWidget {
               onPressed: () => onTap(1),
             ),
             IconButton(
-              icon: Icon(Icons.person, color: _color(2), size: 32,),
+              icon: Icon(Icons.developer_mode, color: _color(2), size: 32,),
               onPressed: () => onTap(2),
             ),
           ],

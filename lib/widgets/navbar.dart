@@ -12,7 +12,7 @@ class Navbar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.onConnect,
     required this.status,
-    this.title = 'EGluco App',
+    this.title = 'eProbe',
     this.assetLogoPath = 'assets/images/logo_teste.jpg',
   });
 
@@ -49,16 +49,23 @@ class Navbar extends StatelessWidget implements PreferredSizeWidget {
       title: Row(
         children: [
           // Logo (use Image.asset para PNG/JPG, SvgPicture.asset para SVG com flutter_svg)
-          Image.asset(
-            assetLogoPath,
-            height: 32,
-            errorBuilder: (context, error, stackTrace) {
-              // fallback simples se asset não existir
-              return const Icon(Icons.bluetooth, size: 32);
-            },
-          ),
+          // Image.asset(
+          //   assetLogoPath,
+          //   height: 32,
+          //   errorBuilder: (context, error, stackTrace) {
+          //     // fallback simples se asset não existir
+          //     return const Icon(Icons.bluetooth, size: 32);
+          //   },
+          // ),
           const SizedBox(width: 12),
-          Text(title, style: const TextStyle(fontSize: 20)),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
       actions: [

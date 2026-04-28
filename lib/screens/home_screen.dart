@@ -172,7 +172,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final realSpots = _spots(iz.freq, iz.real);
     final imagSpots = _spots(iz.freq, iz.imag);
-
+     final List<ChartData> realData =
+    realSpots.map((e) => ChartData(e.x, e.y)).toList();
+    final List<ChartData> imagData =
+    imagSpots.map((e) => ChartData(e.x, e.y)).toList();
+    
     if (widget.connStatus != ConnectionStatus.connected) {
       return const Center(
         child: Text("Conecte ao dispositivo para ver os dados"),
@@ -191,8 +195,9 @@ class _HomeScreenState extends State<HomeScreen> {
               child: GraphCard(
                 title: "Real(Z)",
                 unit: "Ω",
-                spots: realSpots,
+                data: realData,
                 color: Colors.red,
+                axis: 'logarithmic',
               ),
             ),
             const SizedBox(height: 12),
@@ -201,7 +206,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: GraphCard(
                 title: "Imag(Z)",
                 unit: "Ω",
-                spots: imagSpots,
+                data: imagData,
+                axis: "logarithmic",
                 color: Colors.green,
               ),
             ),

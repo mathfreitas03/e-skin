@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'widgets/ble_controllerv3.dart';
+import 'controllers/ble_controller.dart';
 import 'package:e_skin/permissions.dart';
 import 'dart:async';
 
