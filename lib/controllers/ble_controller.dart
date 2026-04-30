@@ -6,15 +6,19 @@ class BleController {
   final FlutterReactiveBle ble = FlutterReactiveBle();
   DiscoveredDevice? esp32;
 
-  // Buffer para comunicação
+  final _connectionController = StreamController<ConnectionStatus>.broadcast();
+  Stream<ConnectionStatus> get connectionStream => _connectionController.stream;
+
   String _rxBuffer = "";
 
   final _messageController = StreamController<String>.broadcast();
   Stream<String> get messageStream => _messageController.stream;
 
-  // UUID do serviço e característica principal de controle
-  final serviceControl = Uuid.parse("87654321-4321-4321-4321-0987654321ba");
-  final charControl = Uuid.parse("87654321-4321-4321-4321-0987654321bb");
+  // ✅ UUIDs (corrigidos conforme Python)
+  final serviceControl = Uuid.parse("6ebf5001-8765-4f67-8f4f-95f56ac3a1a0");
+
+  final charNotify = Uuid.parse("6ebf5002-8765-4f67-8f4f-95f56ac3a1a0"); // 📥 NOTIFY (RX)
+  final charWrite  = Uuid.parse("6ebf5003-8765-4f67-8f4f-95f56ac3a1a0"); // 📤 WRITE (TX)
 
   // ===== SCAN =====
   Future<bool> scanForEsp() async {
@@ -31,13 +35,17 @@ class BleController {
     print("Bluetooth pronto, iniciando scan...");
 
     final subscription = ble.scanForDevices(withServices: []).listen((device) {
-      if (device.name == "Bioimpedance device") {
+      if (device.id == "DC:06:75:F6:57:5E") {
         esp32 = device;
       }
     });
 
     await Future.delayed(const Duration(seconds: 5));
     await subscription.cancel();
+
+    if (esp32 == null) {
+      print("Nao foi possivel encontrar o dispositivo");
+    }
 
     return esp32 != null;
   }
@@ -49,13 +57,14 @@ class BleController {
     try {
       await ble.connectToDevice(id: esp32!.id).first;
 
-      // Inicia listener de notificações
       await _startNotificationListener();
 
+      _connectionController.add(ConnectionStatus.connected);
       print("Conectado!");
       return true;
     } catch (e) {
       print("Erro conexão: $e");
+      _connectionController.add(ConnectionStatus.disconnected);
       return false;
     }
   }
@@ -65,7 +74,7 @@ class BleController {
     final characteristic = QualifiedCharacteristic(
       deviceId: esp32!.id,
       serviceId: serviceControl,
-      characteristicId: charControl,
+      characteristicId: charNotify, 
     );
 
     ble.subscribeToCharacteristic(characteristic).listen((data) {
@@ -74,15 +83,17 @@ class BleController {
       if (chunk.isEmpty) return;
 
       _rxBuffer += chunk;
-
+          
       while (_rxBuffer.contains("@")) {
-        final parts = _rxBuffer.split("@");
-        final completed = parts.first;
-        _rxBuffer = parts.sublist(1).join("@");
+        final index = _rxBuffer.indexOf("@");
 
-        final message = "$completed@";
-        print("RX COMPLETO: $message");
-        _messageController.add(message);
+        final completed = _rxBuffer.substring(0, index);
+        _rxBuffer = _rxBuffer.substring(index + 1);
+
+        final block = "$completed@";
+
+        print("RX COMPLETO: $block");
+        _messageController.add(block);
       }
     });
   }
@@ -94,11 +105,11 @@ class BleController {
     final characteristic = QualifiedCharacteristic(
       deviceId: esp32!.id,
       serviceId: serviceControl,
-      characteristicId: charControl,
+      characteristicId: charWrite, // ✅ 5003 (igual Python)
     );
 
     final payload = utf8.encode(text);
-    const chunkSize = 20;
+    const chunkSize = 180;
 
     for (int i = 0; i < payload.length; i += chunkSize) {
       final chunk = payload.sublist(
@@ -106,11 +117,14 @@ class BleController {
         i + chunkSize > payload.length ? payload.length : i + chunkSize,
       );
 
-      await ble.writeCharacteristicWithoutResponse(characteristic, value: chunk);
+      await ble.writeCharacteristicWithResponse(
+        characteristic,
+        value: chunk,
+      );
+
       await Future.delayed(const Duration(milliseconds: 5));
     }
 
-    print("Mensagem enviada: $text");
   }
 
   // ===== LISTENER PARA IZController =====

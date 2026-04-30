@@ -9,7 +9,9 @@ class IzController {
     freq = [];
 
     //  pega só até o primeiro bloco completo
+    
     final block = raw.contains("@") ? raw.split("@").first : raw;
+    print("RAW BLOCK: ${block}");
 
     //  quebra linha corretamente (Windows/Linux)
     final lines = block.split(RegExp(r'\r?\n'));
