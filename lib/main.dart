@@ -55,6 +55,7 @@ class _MainLayoutState extends State<MainLayout> {
   String _controlConfirmation = "Nenhum";
 
   StreamSubscription<String>? _bleSubscription;
+  StreamSubscription<ConnectionStatus>? _connSub;
 
   double _temperature = 0;
   int _pressure = 0;
@@ -63,6 +64,16 @@ class _MainLayoutState extends State<MainLayout> {
   void initState() {
     super.initState();
 
+  // TODO : Arrumar isso aqui
+
+    // _connSub = ble.connectionStream.listen((status) {
+    //   if (!mounted) return;
+
+    //   setState(() {
+    //     connStatus = status;
+    //   });
+    // });
+    
     // Escuta os blocos recebidos do BLE e processa via IzController
     _bleSubscription = ble.messageStream.listen((block) {
       iz.process(block);
@@ -75,6 +86,8 @@ class _MainLayoutState extends State<MainLayout> {
         });
       }
     });
+
+    
   }
 
   @override

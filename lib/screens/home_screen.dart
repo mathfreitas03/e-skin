@@ -177,18 +177,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<ChartData> imagData =
     imagSpots.map((e) => ChartData(e.x, e.y)).toList();
     
-    if (widget.connStatus != ConnectionStatus.connected) {
-      return const Center(
-        child: Text("Conecte ao dispositivo para ver os dados"),
-      );
-    }
+     if (widget.connStatus != ConnectionStatus.connected) {
+       return const Center(
+         child: Text("Conecte ao dispositivo para ver os dados"),
+       );
+     }
 
     return Padding(
       padding: const EdgeInsets.all(12),
       child: ListView(
         children: [
 
-          // 📊 GRÁFICOS
           if (iz.freq.isNotEmpty) ...[
             SizedBox(
               height: 220,
@@ -218,7 +217,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 12),
 
-          // 📦 DADOS
           Row(
             children: [
               Expanded(
@@ -255,7 +253,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 12),
 
-          // 🎮 CONTROLE
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -268,12 +265,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                     ),
-                    onSubmitted: (value) {
-                      if (value.isNotEmpty) {
-                        widget.onDatasetChanged(value);
-                      }
-                    },
+                    // onSubmitted: (value) {
+                    //   if (value.isNotEmpty) {
+                    //     widget.onDatasetChanged(value);
+                    //   }
+                    // },
                   ),
+                  ElevatedButton(
+                  onPressed: () {
+                    final value = _controller.text;
+
+                    if (value.isNotEmpty) {
+                      String valueUpperCase = value.toUpperCase();
+                      widget.onDatasetChanged(valueUpperCase);
+                      print("Texto enviado: $valueUpperCase");
+                    }
+                  },
+                  child: const Text("Enviar"),
+                )
                 ],
               ),
             ),
