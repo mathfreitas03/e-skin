@@ -14,7 +14,7 @@ class BleController {
   final _messageController = StreamController<String>.broadcast();
   Stream<String> get messageStream => _messageController.stream;
 
-  // ✅ UUIDs (corrigidos conforme Python)
+  // Novos UUID
   final serviceControl = Uuid.parse("6ebf5001-8765-4f67-8f4f-95f56ac3a1a0");
 
   final charNotify = Uuid.parse("6ebf5002-8765-4f67-8f4f-95f56ac3a1a0"); // 📥 NOTIFY (RX)
@@ -61,11 +61,23 @@ class BleController {
 
       _connectionController.add(ConnectionStatus.connected);
       print("Conectado!");
+      negotiateMTU(ble, esp32!.id);
+      
       return true;
     } catch (e) {
       print("Erro conexão: $e");
       _connectionController.add(ConnectionStatus.disconnected);
       return false;
+    }
+  }
+
+  void negotiateMTU(FlutterReactiveBle connection, String deviceId, {int mtu = 512}) async{
+    try{
+      await connection.requestMtu(deviceId: deviceId, mtu: mtu);
+      print("MTU negociado: $mtu");
+    }
+    catch(e) {
+      print("Error negotiating MTU: $e");
     }
   }
 
