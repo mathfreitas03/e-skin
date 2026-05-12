@@ -1,13 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:eprobe/models/connection_status.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 
 class BleController {
   final FlutterReactiveBle ble = FlutterReactiveBle();
+  StreamSubscription<ConnectionStateUpdate>? _connectionSub;
+  StreamSubscription<List<int>>? _notifySub;
   DiscoveredDevice? esp32;
 
-  final _connectionController = StreamController<ConnectionStatus>.broadcast();
-  Stream<ConnectionStatus> get connectionStream => _connectionController.stream;
+
+  final _connectionController =
+    StreamController<BleConnectionStatus>.broadcast();
+
+  Stream<BleConnectionStatus> get connectionStream =>
+      _connectionController.stream;
 
   String _rxBuffer = "";
 
@@ -50,26 +57,51 @@ class BleController {
     return esp32 != null;
   }
 
+  
   // ===== CONNECT =====
   Future<bool> connect() async {
-    if (esp32 == null) return false;
+  if (esp32 == null) return false;
 
-    try {
-      await ble.connectToDevice(id: esp32!.id).first;
+  try {
+    _connectionSub = ble
+        .connectToDevice(id: esp32!.id)
+        .listen((update) async {
 
-      await _startNotificationListener();
+      switch (update.connectionState) {
 
-      _connectionController.add(ConnectionStatus.connected);
-      print("Conectado!");
-      negotiateMTU(ble, esp32!.id);
-      
-      return true;
-    } catch (e) {
-      print("Erro conexão: $e");
-      _connectionController.add(ConnectionStatus.disconnected);
-      return false;
-    }
+        case DeviceConnectionState.connecting:
+          print("Conectando...");
+          _connectionController.add(BleConnectionStatus.connecting);
+          break;
+
+        case DeviceConnectionState.connected:
+          print("Conectado!");
+          _connectionController.add(BleConnectionStatus.connected);
+
+          negotiateMTU(ble, esp32!.id);
+          await _startNotificationListener();
+
+          break;
+
+        case DeviceConnectionState.disconnecting:
+          print("Desconectando...");
+          break;
+
+        case DeviceConnectionState.disconnected:
+          print("Desconectado!");
+          _connectionController.add(BleConnectionStatus.disconnected);
+          break;
+      }
+    });
+
+    return true;
+
+  } catch (e) {
+    print("Erro conexão: $e");
+    _connectionController.add(BleConnectionStatus.disconnected);
+    return false;
   }
+}
 
   void negotiateMTU(FlutterReactiveBle connection, String deviceId, {int mtu = 512}) async{
     try{
@@ -83,32 +115,49 @@ class BleController {
 
   // ===== NOTIFICATION LISTENER =====
   Future<void> _startNotificationListener() async {
-    final characteristic = QualifiedCharacteristic(
-      deviceId: esp32!.id,
-      serviceId: serviceControl,
-      characteristicId: charNotify, 
-    );
 
-    ble.subscribeToCharacteristic(characteristic).listen((data) {
-      final chunk = utf8.decode(data, allowMalformed: true);
+  await _notifySub?.cancel();
 
-      if (chunk.isEmpty) return;
+  final characteristic = QualifiedCharacteristic(
+    deviceId: esp32!.id,
+    serviceId: serviceControl,
+    characteristicId: charNotify,
+  );
 
-      _rxBuffer += chunk;
-          
-      while (_rxBuffer.contains("@")) {
-        final index = _rxBuffer.indexOf("@");
+  _notifySub = ble
+      .subscribeToCharacteristic(characteristic)
+      .listen((data) {
 
-        final completed = _rxBuffer.substring(0, index);
-        _rxBuffer = _rxBuffer.substring(index + 1);
+    // final chunk = utf8.decode(data, allowMalformed: true);
+    final chunk = String.fromCharCodes(data); // chunk alternativo
 
-        final block = "$completed@";
+    if (chunk.isEmpty) return;
 
-        print("RX COMPLETO: $block");
-        _messageController.add(block);
-      }
-    });
-  }
+    _rxBuffer += chunk;
+
+    while (_rxBuffer.contains("@")) {
+
+      final index = _rxBuffer.indexOf("@");
+
+      final completed = _rxBuffer.substring(0, index);
+
+      _rxBuffer = _rxBuffer.substring(index + 1);
+
+      final block = "$completed@";
+
+      _messageController.add(block);
+    }
+  });
+}
+
+void dispose() {
+
+  _notifySub?.cancel();
+  _connectionSub?.cancel();
+
+  _connectionController.close();
+  _messageController.close();
+}
 
   // ===== ENVIO DE MENSAGENS =====
   Future<void> sendMessage(String text) async {
@@ -117,11 +166,11 @@ class BleController {
     final characteristic = QualifiedCharacteristic(
       deviceId: esp32!.id,
       serviceId: serviceControl,
-      characteristicId: charWrite, // ✅ 5003 (igual Python)
+      characteristicId: charWrite, 
     );
 
     final payload = utf8.encode(text);
-    const chunkSize = 180;
+    const chunkSize = 512 - 3;
 
     for (int i = 0; i < payload.length; i += chunkSize) {
       final chunk = payload.sublist(
@@ -134,11 +183,16 @@ class BleController {
         value: chunk,
       );
 
-      await Future.delayed(const Duration(milliseconds: 5));
+      // await Future.delayed(const Duration(milliseconds: 30));
     }
 
   }
 
+  Future<void> disconnect() async {
+    await _connectionSub?.cancel();
+    _connectionSub = null;
+  }
+  
   // ===== LISTENER PARA IZController =====
   void listenIZData(void Function(String block) onBlock) {
     messageStream.listen((block) => onBlock(block));

@@ -123,7 +123,7 @@ import '../models/connection_status.dart';
 //   }
 // }
 class HomeScreen extends StatefulWidget {
-  final ConnectionStatus connStatus;
+  final BleConnectionStatus connStatus;
   final IzController iz;
   final double temperature;
   final int pressure;
@@ -392,8 +392,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           valueUpperCase,
                         );
 
-                        print(
-                          "Texto enviado: $valueUpperCase",
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Comando enviado'),
+                            duration: const Duration(seconds: 4),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                          ),
                         );
                       }
                     },
