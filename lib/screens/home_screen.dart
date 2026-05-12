@@ -122,7 +122,6 @@ import '../models/connection_status.dart';
 //     );
 //   }
 // }
-
 class HomeScreen extends StatefulWidget {
   final ConnectionStatus connStatus;
   final IzController iz;
@@ -149,11 +148,22 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late TextEditingController _controller;
+  
+  /// =========================
+  /// TARA / COMPENSAÇÃO
+  /// =========================
+
+  List<double>? tareReal;
+  List<double>? tareImag;
+
+  bool applyTare = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.selectedDataset);
+    _controller = TextEditingController(
+      text: widget.selectedDataset,
+    );
   }
 
   @override
@@ -162,88 +172,176 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  List<FlSpot> _spots(List<double> x, List<double> y) {
-    int min = x.length < y.length ? x.length : y.length;
-    return List.generate(min, (i) => FlSpot(x[i], y[i]));
+  void _captureTare() {
+    setState(() {
+      tareReal = List.from(widget.iz.real);
+      tareImag = List.from(widget.iz.imag);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Referência capturada"),
+      ),
+    );
+  }
+
+  void _clearTare() {
+    setState(() {
+      tareReal = null;
+      tareImag = null;
+      applyTare = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Compensação removida"),
+      ),
+    );
+  }
+
+  List<double> _applyTare(
+    List<double> current,
+    List<double>? tare,
+  ) {
+    if (!applyTare || tare == null) {
+      return current;
+    }
+
+    int min = current.length < tare.length
+        ? current.length
+        : tare.length;
+
+    return List.generate(
+      min,
+      (i) => current[i] - tare[i],
+    );
+  }
+
+  List<FlSpot> _spots(
+    List<double> x,
+    List<double> y,
+  ) {
+    int min = x.length < y.length
+        ? x.length
+        : y.length;
+
+    return List.generate(
+      min,
+      (i) => FlSpot(x[i], y[i]),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final iz = widget.iz;
 
-    final realSpots = _spots(iz.freq, iz.real);
-    final imagSpots = _spots(iz.freq, iz.imag);
-     final List<ChartData> realData =
-    realSpots.map((e) => ChartData(e.x, e.y)).toList();
+    /// =========================
+    /// DADOS COMPENSADOS
+    /// =========================
+
+    final correctedReal = _applyTare(
+      iz.real,
+      tareReal,
+    );
+
+    final correctedImag = _applyTare(
+      iz.imag,
+      tareImag,
+    );
+
+    final realSpots = _spots(
+      iz.freq,
+      correctedReal,
+    );
+
+    final imagSpots = _spots(
+      iz.freq,
+      correctedImag,
+    );
+
+    final List<ChartData> realData =
+        realSpots.map((e) => ChartData(e.x, e.y)).toList();
+
     final List<ChartData> imagData =
-    imagSpots.map((e) => ChartData(e.x, e.y)).toList();
-    
-     if (widget.connStatus != ConnectionStatus.connected) {
-       return const Center(
-         child: Text("Conecte ao dispositivo para ver os dados"),
-       );
-     }
+        imagSpots.map((e) => ChartData(e.x, e.y)).toList();
 
     return Padding(
       padding: const EdgeInsets.all(12),
       child: ListView(
         children: [
 
-          if (iz.freq.isNotEmpty) ...[
-            SizedBox(
-              height: 220,
-              child: GraphCard(
-                title: "Real(Z)",
-                unit: "Ω",
-                data: realData,
-                color: Colors.red,
-                axis: 'logarithmic',
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 220,
-              child: GraphCard(
-                title: "Imag(Z)",
-                unit: "Ω",
-                data: imagData,
-                axis: "logarithmic",
-                color: Colors.green,
-              ),
-            ),
-          ] else ...[
-            const Center(child: Text("Aguardando dados IZ...")),
-            const SizedBox(height: 20),
-          ],
+          /// =========================
+          /// GRÁFICOS
+          /// =========================
+
+          SizedBox(
+            height: 500,
+            child: GraphViewScreen(
+            iz: iz,
+            realOverride: correctedReal,
+            imagOverride: correctedImag,
+            title: applyTare
+                ? "Medição Compensada"
+                : "Nova Medição",
+            xAxis: "logarithmic",
+          ),
+          ),
 
           const SizedBox(height: 12),
 
+          /// =========================
+          /// TEMPERATURA / PRESSÃO
+          /// =========================
+
           Row(
             children: [
+
               Expanded(
                 child: Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
+                    padding:
+                        const EdgeInsets.all(12),
                     child: Column(
                       children: [
-                        Text("Temperatura",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${widget.temperature.toStringAsFixed(1)} °C"),
+
+                        const Text(
+                          "Temperatura",
+                          style: TextStyle(
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+                        ),
+
+                        Text(
+                          "${widget.temperature.toStringAsFixed(1)} °C",
+                        ),
                       ],
                     ),
                   ),
                 ),
               ),
+
               const SizedBox(width: 8),
+
               Expanded(
                 child: Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
+                    padding:
+                        const EdgeInsets.all(12),
                     child: Column(
                       children: [
-                        Text("Pressão",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${widget.pressure} g"),
+
+                        const Text(
+                          "Pressão",
+                          style: TextStyle(
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+                        ),
+
+                        Text(
+                          "${widget.pressure} g",
+                        ),
                       ],
                     ),
                   ),
@@ -254,40 +352,139 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 12),
 
+          /// =========================
+          /// COMANDOS
+          /// =========================
+
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
-                  const Text("Enviar comando"),
+
+                  const Text(
+                    "Enviar comando",
+                  ),
+
                   const SizedBox(height: 8),
+
                   TextField(
                     controller: _controller,
-                    decoration: const InputDecoration(
+                    decoration:
+                        const InputDecoration(
                       border: OutlineInputBorder(),
                     ),
-                    // onSubmitted: (value) {
-                    //   if (value.isNotEmpty) {
-                    //     widget.onDatasetChanged(value);
-                    //   }
-                    // },
                   ),
-                  ElevatedButton(
-                  onPressed: () {
-                    final value = _controller.text;
 
-                    if (value.isNotEmpty) {
-                      String valueUpperCase = value.toUpperCase();
-                      widget.onDatasetChanged(valueUpperCase);
-                      print("Texto enviado: $valueUpperCase");
-                    }
-                  },
-                  child: const Text("Enviar"),
-                )
+                  const SizedBox(height: 12),
+
+                  ElevatedButton(
+                    onPressed: () {
+                      final value =
+                          _controller.text;
+
+                      if (value.isNotEmpty) {
+
+                        String valueUpperCase =
+                            value.toUpperCase();
+
+                        widget.onDatasetChanged(
+                          valueUpperCase,
+                        );
+
+                        print(
+                          "Texto enviado: $valueUpperCase",
+                        );
+                      }
+                    },
+                    child: const Text("Enviar"),
+                  ),
                 ],
               ),
             ),
           ),
+
+          /// =========================
+          /// CARD DE COMPENSAÇÃO
+          /// =========================
+
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+
+                  const Text(
+                    "Compensação",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: iz.real.isEmpty
+                              ? null
+                              : _captureTare,
+                          child: const Text(
+                            "Tara",
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 8),
+
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: tareReal == null
+                              ? null
+                              : _clearTare,
+                          child: const Text("Limpar"),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  SwitchListTile(
+                    contentPadding:
+                        EdgeInsets.zero,
+                    value: applyTare,
+                    onChanged: tareReal == null
+                        ? null
+                        : (v) {
+                            setState(() {
+                              applyTare = v;
+                            });
+                          },
+                    title: const Text(
+                      "Aplicar compensação",
+                    ),
+                  ),
+
+                  if (tareReal != null)
+                    const Text(
+                      "Referência ativa",
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
         ],
       ),
     );
