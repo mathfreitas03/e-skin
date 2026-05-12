@@ -3,8 +3,14 @@ import 'package:flutter/services.dart' show rootBundle;
 import '../controllers/iz_controller.dart';
 import 'graph_view_screen.dart';
 
-class StatsScreen extends StatelessWidget {
+class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
+
+  @override
+  State<StatsScreen> createState() => _StatsScreenState();
+}
+
+class _StatsScreenState extends State<StatsScreen> {
 
   final List<String> logs = const [
     "log1.txt",
@@ -13,8 +19,13 @@ class StatsScreen extends StatelessWidget {
     "log4.txt",
   ];
 
-  Future<void> _openLog(BuildContext context, String fileName) async {
-    final data = await rootBundle.loadString("assets/logs/$fileName");
+  Future<void> _openLog(String fileName) async {
+
+    final data = await rootBundle.loadString(
+      "assets/logs/$fileName",
+    );
+
+    if (!mounted) return;
 
     final iz = IzController();
     iz.process(data);
@@ -22,10 +33,15 @@ class StatsScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => GraphViewScreen(
-          title: ("Dataset $fileName"),
-          iz: iz,
-          xAxis: 'logarithmic',
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            // title: Text("Dataset $fileName"),
+          ),
+          body: GraphViewScreen(
+            title: "Dataset $fileName",
+            iz: iz,
+            xAxis: 'logarithmic',
+          ),
         ),
       ),
     );
@@ -47,7 +63,7 @@ class StatsScreen extends StatelessWidget {
           final file = logs[index];
 
           return GestureDetector(
-            onTap: () => _openLog(context, file),
+            onTap: () => _openLog(file),
             child: Card(
               elevation: 3,
               child: Column(
@@ -58,7 +74,9 @@ class StatsScreen extends StatelessWidget {
                   Text(
                     file.split('.')[0].toUpperCase(),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),

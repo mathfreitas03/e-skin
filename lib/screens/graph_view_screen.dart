@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+
 import '../controllers/iz_controller.dart';
 import '../widgets/graph_card.dart';
 
@@ -8,18 +9,28 @@ class GraphViewScreen extends StatefulWidget {
   final String title;
   final String xAxis;
 
+  /// Dados opcionais sobrescritos
+  /// (utilizados para compensação/tara)
+  final List<double>? realOverride;
+  final List<double>? imagOverride;
+
   const GraphViewScreen({
     super.key,
     required this.iz,
     required this.title,
     required this.xAxis,
+    this.realOverride,
+    this.imagOverride,
   });
 
   @override
-  State<GraphViewScreen> createState() => _GraphViewScreenState();
+  State<GraphViewScreen> createState() =>
+      _GraphViewScreenState();
 }
 
-class _GraphViewScreenState extends State<GraphViewScreen> {
+class _GraphViewScreenState
+    extends State<GraphViewScreen> {
+
   late String xAxis;
 
   @override
@@ -28,15 +39,18 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
     xAxis = widget.xAxis;
   }
 
-  List<FlSpot> _spots(List<double> x, List<double> y) {
-    List<FlSpot> s = [];
-    int min = x.length < y.length ? x.length : y.length;
+  List<FlSpot> _spots(
+    List<double> x,
+    List<double> y,
+  ) {
+    int min = x.length < y.length
+        ? x.length
+        : y.length;
 
-    for (int i = 0; i < min; i++) {
-      s.add(FlSpot(x[i], y[i]));
-    }
-
-    return s;
+    return List.generate(
+      min,
+      (i) => FlSpot(x[i], y[i]),
+    );
   }
 
   void _showAxisDialog() {
@@ -44,25 +58,39 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Escala do eixo X"),
+          title: const Text(
+            "Escala do eixo X",
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+
               RadioListTile<String>(
-                title: const Text("Logarítmica"),
+                title: const Text(
+                  "Logarítmica",
+                ),
                 value: 'logarithmic',
                 groupValue: xAxis,
                 onChanged: (value) {
-                  setState(() => xAxis = value!);
+                  setState(() {
+                    xAxis = value!;
+                  });
+
                   Navigator.pop(context);
                 },
               ),
+
               RadioListTile<String>(
-                title: const Text("Numérica"),
+                title: const Text(
+                  "Numérica",
+                ),
                 value: 'numeric',
                 groupValue: xAxis,
                 onChanged: (value) {
-                  setState(() => xAxis = value!);
+                  setState(() {
+                    xAxis = value!;
+                  });
+
                   Navigator.pop(context);
                 },
               ),
@@ -75,63 +103,131 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final realSpots = _spots(widget.iz.freq, widget.iz.real);
-    final imagSpots = _spots(widget.iz.freq, widget.iz.imag);
+
+    /// =========================
+    /// DADOS UTILIZADOS
+    /// =========================
+
+    final realValues =
+        widget.realOverride ?? widget.iz.real;
+
+    final imagValues =
+        widget.imagOverride ?? widget.iz.imag;
+
+    /// =========================
+    /// PONTOS
+    /// =========================
+
+    final realSpots = _spots(
+      widget.iz.freq,
+      realValues,
+    );
+
+    final imagSpots = _spots(
+      widget.iz.freq,
+      imagValues,
+    );
+
+    /// =========================
+    /// CHART DATA
+    /// =========================
 
     final List<ChartData> realData =
-        realSpots.map((e) => ChartData(e.x, e.y)).toList();
+        realSpots
+            .map(
+              (e) => ChartData(e.x, e.y),
+            )
+            .toList();
 
     final List<ChartData> imagData =
-        imagSpots.map((e) => ChartData(e.x, e.y)).toList();
+        imagSpots
+            .map(
+              (e) => ChartData(e.x, e.y),
+            )
+            .toList();
+
+    /// =========================
+    /// SEM DADOS
+    /// =========================
 
     if (widget.iz.freq.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.title),
-        ),
-        body: const Center(
-          child: Text("Nenhum dado encontrado no arquivo"),
+      return const Center(
+        child: Text(
+          "Nenhum dado encontrado",
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          IconButton(
-            onPressed: _showAxisDialog,
-            icon: const Icon(Icons.settings),
-          )
+    /// =========================
+    /// VIEW
+    /// =========================
+
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+
+          /// =========================
+          /// HEADER
+          /// =========================
+
+          Row(
+            mainAxisAlignment:
+                MainAxisAlignment.spaceBetween,
+            children: [
+
+              Text(
+                widget.title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              IconButton(
+                onPressed: _showAxisDialog,
+                icon: const Icon(
+                  Icons.settings,
+                ),
+              ),
+            ],
+          ),
+
+          /// =========================
+          /// GRÁFICOS
+          /// =========================
+
+          Expanded(
+            child: ListView(
+              children: [
+
+                SizedBox(
+                  height: 220,
+                  child: GraphCard(
+                    title: "Real(Z)",
+                    unit: "Ω",
+                    data: realData,
+                    color: Colors.red,
+                    axis: xAxis,
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  height: 220,
+                  child: GraphCard(
+                    title: "Imag(Z)",
+                    unit: "Ω",
+                    data: imagData,
+                    color: Colors.green,
+                    axis: xAxis,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: ListView(
-          children: [
-            SizedBox(
-              height: 220,
-              child: GraphCard(
-                title: "Real(Z)",
-                unit: "Ω",
-                data: realData,
-                color: Colors.red,
-                axis: xAxis,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 220,
-              child: GraphCard(
-                title: "Imag(Z)",
-                unit: "Ω",
-                data: imagData,
-                color: Colors.green,
-                axis: xAxis,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -48,6 +48,7 @@ class GraphCard extends StatelessWidget {
 
               series: <CartesianSeries>[
                 LineSeries<ChartData, double>(
+                  animationDuration: 500,
                   dataSource: data,
                   xValueMapper: (ChartData d, _) => d.x,
                   yValueMapper: (ChartData d, _) => d.y,
