@@ -183,7 +183,7 @@ void dispose() {
         value: chunk,
       );
 
-      // await Future.delayed(const Duration(milliseconds: 30));
+      print("Chunk enviado: ${utf8.decode(chunk)}");
     }
 
   }

@@ -61,7 +61,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   int _currentIndex = 0;
 
-  String _selectedDataset = "1";
+  String _selectedDataset = "IZ1000000F";
   String _controlConfirmation = "Nenhum";
 
   StreamSubscription<String>? _bleSubscription;
@@ -120,13 +120,13 @@ class _MainLayoutState extends State<MainLayout> {
   Future<void> onConnectPressed() async {
 
     if (connStatus == BleConnectionStatus.connected ||
-        connStatus == BleConnectionStatus.connecting ||
+        // connStatus == BleConnectionStatus.connecting ||
         connStatus == BleConnectionStatus.scanning) {
       return;
     }
 
     setState(() {
-      connStatus = BleConnectionStatus.scanning;
+      connStatus = BleConnectionStatus.connecting;
     });
 
     final granted = await requestBlePermissions();

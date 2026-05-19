@@ -1,127 +1,11 @@
 import 'package:eprobe/screens/graph_view_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import '../widgets/graph_card.dart';
+// import 'package:fl_chart/fl_chart.dart';
+// import '../widgets/graph_card.dart';
 import '../controllers/iz_controller.dart';
 import '../models/connection_status.dart';
+import 'probe_config.dart';
 
-// class HomeScreen extends StatelessWidget {
-
-//   final ConnectionStatus connStatus;
-//   final IzController iz;
-//   final double temperature;
-//   final int pressure;
-//   final String selectedDataset;
-//   final String controlConfirmation;
-//   final Function(String) onDatasetChanged;
-
-//   const HomeScreen({
-//     super.key,
-//     required this.connStatus,
-//     required this.iz,
-//     required this.temperature,
-//     required this.pressure,
-//     required this.selectedDataset,
-//     required this.controlConfirmation,
-//     required this.onDatasetChanged,
-//   });
-
-//   List<FlSpot> _spots(List<double> x, List<double> y) {
-//     List<FlSpot> s = [];
-//     int min = x.length < y.length ? x.length : y.length;
-//     for (int i = 0; i < min; i++) {
-//       s.add(FlSpot(x[i], y[i]));
-//     }
-//     return s;
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-
-//     final realSpots = _spots(iz.freq, iz.real);
-//     final imagSpots = _spots(iz.freq, iz.imag);
-
-//     if (connStatus != ConnectionStatus.connected) {
-//       return const Center(
-//         child: Text("Conecte ao dispositivo para ver os dados"),
-//       );
-//     }
-
-//     return Padding(
-//       padding: const EdgeInsets.all(12),
-//       child: ListView(
-//         children: [
-
-//           SizedBox(
-//             height:220,
-//             child: GraphCard(
-//               title: "Real(Z)",
-//               unit: "Ω",
-//               spots: realSpots,
-//               color: Colors.red,
-//             ),
-//           ),
-
-//           const SizedBox(height:12),
-
-//           SizedBox(
-//             height:220,
-//             child: GraphCard(
-//               title: "Imag(Z)",
-//               unit: "Ω",
-//               spots: imagSpots,
-//               color: Colors.green,
-//             ),
-//           ),
-
-//           const SizedBox(height:12),
-
-//           GridView.count(
-//             crossAxisCount:2,
-//             shrinkWrap:true,
-//             physics: const NeverScrollableScrollPhysics(),
-//             children:[
-
-//               Card(
-//                 child: Column(
-//                   mainAxisAlignment: MainAxisAlignment.center,
-//                   children:[
-//                     Text("Temp: ${temperature.toStringAsFixed(1)} °C"),
-//                     Text("Pressão: $pressure g"),
-//                   ],
-//                 ),
-//               ),
-
-//               Card(
-//             child: Padding(
-//               padding: const EdgeInsets.all(8.0),
-//               child: Column(
-//                 children: [
-//                   TextField(
-//                     decoration: const InputDecoration(
-//                       labelText: "Comando",
-//                       border: OutlineInputBorder(),
-//                     ),
-//                     controller: TextEditingController(text: selectedDataset),
-//                     onSubmitted: (value) {
-//                       if (value.isNotEmpty) {
-//                         onDatasetChanged(value); // envia o texto direto
-//                       }
-//                     },
-//                   ),
-                  
-//                 ],
-//               ),
-//             ),
-//           )
-
-//             ],
-//           )
-//         ],
-//       ),
-//     );
-//   }
-// }
 class HomeScreen extends StatefulWidget {
   final BleConnectionStatus connStatus;
   final IzController iz;
@@ -149,6 +33,71 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late TextEditingController _controller;
   
+
+  // STREAM MODE
+
+  bool streaming = false;
+  bool paused = false;
+
+  Future<void> startStream() async {
+
+      if (streaming) return;
+
+      streaming = true;
+
+      paused = false;
+      widget.onDatasetChanged("IKF");
+
+      while (streaming) {
+
+        if (!paused) {
+
+          final value = _controller.text;
+
+          if (value.isNotEmpty) {
+
+            String valueUpperCase =
+                value.toUpperCase();
+
+            widget.onDatasetChanged(
+              valueUpperCase,
+            );
+
+            // print("Comando enviado: $valueUpperCase");
+
+          } 
+        }
+
+        await Future.delayed(
+          const Duration(seconds: 5),
+        );
+      }
+    }
+
+    void stopStream() {
+      setState(() {
+        streaming = false;
+        paused = false;
+      });
+    }
+
+    void pauseStream() {
+
+      paused = true;
+    }
+
+    void resumeStream() {
+
+      paused = false;
+    }
+
+    void togglePause() {
+
+      setState(() {
+        paused = !paused;
+      });
+    }
+
   /// =========================
   /// TARA / COMPENSAÇÃO
   /// =========================
@@ -217,19 +166,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<FlSpot> _spots(
-    List<double> x,
-    List<double> y,
-  ) {
-    int min = x.length < y.length
-        ? x.length
-        : y.length;
+  // List<FlSpot> _spots(
+  //   List<double> x,
+  //   List<double> y,
+  // ) {
+  //   int min = x.length < y.length
+  //       ? x.length
+  //       : y.length;
 
-    return List.generate(
-      min,
-      (i) => FlSpot(x[i], y[i]),
-    );
-  }
+  //   return List.generate(
+  //     min,
+  //     (i) => FlSpot(x[i], y[i]),
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -249,21 +198,21 @@ class _HomeScreenState extends State<HomeScreen> {
       tareImag,
     );
 
-    final realSpots = _spots(
-      iz.freq,
-      correctedReal,
-    );
+    // final realSpots = _spots(
+    //   iz.freq,
+    //   correctedReal,
+    // );
 
-    final imagSpots = _spots(
-      iz.freq,
-      correctedImag,
-    );
+    // final imagSpots = _spots(
+    //   iz.freq,
+    //   correctedImag,
+    // );
 
-    final List<ChartData> realData =
-        realSpots.map((e) => ChartData(e.x, e.y)).toList();
+    // final List<ChartData> realData =
+    //     realSpots.map((e) => ChartData(e.x, e.y)).toList();
 
-    final List<ChartData> imagData =
-        imagSpots.map((e) => ChartData(e.x, e.y)).toList();
+    // final List<ChartData> imagData =
+    //     imagSpots.map((e) => ChartData(e.x, e.y)).toList();
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -271,23 +220,47 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
 
           /// =========================
-          /// GRÁFICOS
+          /// GRÁFICOS E CONFIGRAÇÕES DA SONDA
           /// =========================
+          
+          DefaultTabController(
+          length: 2,
+          child: SizedBox(
+            height: 500, // altura fixa
+            child: Column(
+              children: [
 
-          SizedBox(
-            height: 500,
-            child: GraphViewScreen(
-            iz: iz,
-            realOverride: correctedReal,
-            imagOverride: correctedImag,
-            title: applyTare
-                ? "Medição Compensada"
-                : "Nova Medição",
-            xAxis: "logarithmic",
-          ),
-          ),
+                const TabBar(
+                  tabs: [
+                    Tab(text: "Gráficos"),
+                    Tab(text: "Sonda"),
+                  ],
+                ),
 
-          const SizedBox(height: 12),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      GraphViewScreen(
+                        iz: iz,
+                        realOverride: correctedReal,
+                        imagOverride: correctedImag,
+                        title: applyTare
+                            ? "Medição Compensada"
+                            : "Nova Medição",
+                        xAxis: "logarithmic",
+                      ),
+                      Center(
+                        child: IzConfigCard(config: iz.config,)
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+          
+          const SizedBox(height: 10),
 
           /// =========================
           /// TEMPERATURA / PRESSÃO
@@ -313,7 +286,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
 
                         Text(
-                          "${widget.temperature.toStringAsFixed(1)} °C",
+                          // "${widget.temperature.toStringAsFixed(1)} °C",
+                          "N/A",
                         ),
                       ],
                     ),
@@ -340,7 +314,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
 
                         Text(
-                          "${widget.pressure} g",
+                          // "${widget.pressure} g",
+                          "N/A",
                         ),
                       ],
                     ),
@@ -361,7 +336,6 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
-
                   const Text(
                     "Enviar comando",
                   ),
@@ -372,40 +346,72 @@ class _HomeScreenState extends State<HomeScreen> {
                     controller: _controller,
                     decoration:
                         const InputDecoration(
-                      border: OutlineInputBorder(),
+                          border: OutlineInputBorder(),
                     ),
                   ),
 
                   const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment:
+                        MainAxisAlignment.spaceEvenly,
+                    children: [
+                      if (!streaming) ...[
+                        ElevatedButton(
+                          onPressed: () {
+                            final value =
+                                _controller.text;
 
-                  ElevatedButton(
-                    onPressed: () {
-                      final value =
-                          _controller.text;
+                            if (value.isNotEmpty) {
+                              widget.onDatasetChanged(
+                                value.toUpperCase(),
+                              );
+                            }
+                          },
 
-                      if (value.isNotEmpty) {
-
-                        String valueUpperCase =
-                            value.toUpperCase();
-
-                        widget.onDatasetChanged(
-                          valueUpperCase,
-                        );
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Comando enviado'),
-                            duration: const Duration(seconds: 4),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(5),
-                            ),
+                          child: const Text(
+                            "Comando Único",
                           ),
-                        );
-                      }
-                    },
-                    child: const Text("Enviar"),
-                  ),
+                        ),
+
+                        ElevatedButton(
+
+                          onPressed: () {
+                            final value =
+                                _controller.text;
+                            if(value.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Digite um comando para iniciar o stream"),
+                                ),
+                              );
+                            }
+                            else {
+                            startStream();
+                            }
+                            },
+
+                          child: const Text(
+                            "Modo Stream",
+                          ),
+                        ),
+                      ],
+
+                      if (streaming) ...[
+                        ElevatedButton(
+                          onPressed: togglePause,
+                          child: Icon(
+                            paused
+                                ? Icons.play_arrow//"Resume"
+                                : Icons.pause // "Pause",
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: stopStream,
+                          child: Icon(Icons.stop),
+                        ),
+                      ],
+                    ],
+                  )
                 ],
               ),
             ),
