@@ -315,6 +315,8 @@
 //   }
 // }
 
+// TODO REMOVER SEGUNDO COMENTARIO
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -352,24 +354,18 @@ class GraphViewScreen extends StatefulWidget {
   });
 
   @override
-  State<GraphViewScreen> createState() =>
-      _GraphViewScreenState();
+  State<GraphViewScreen> createState() => _GraphViewScreenState();
 }
 
-class _GraphViewScreenState
-    extends State<GraphViewScreen> {
-
+class _GraphViewScreenState extends State<GraphViewScreen> {
   late String xAxis;
 
   /// =========================
   /// KEYS DOS GRÁFICOS
   /// =========================
 
-  final GlobalKey realGraphKey =
-      GlobalKey();
-
-  final GlobalKey imagGraphKey =
-      GlobalKey();
+  final GlobalKey realGraphKey = GlobalKey();
+  final GlobalKey imagGraphKey = GlobalKey();
       
   @override
   void initState() {
@@ -384,181 +380,86 @@ class _GraphViewScreenState
   Future<Uint8List> _captureWidget(
     GlobalKey key,
   ) async {
-
-    final boundary =
-        key.currentContext!
-            .findRenderObject()
-                as RenderRepaintBoundary;
+    final boundary = key.currentContext!.findRenderObject() as RenderRepaintBoundary;
 
     final image = await boundary.toImage(
       pixelRatio: 3,
     );
 
-    final byteData =
-        await image.toByteData(
+    final byteData = await image.toByteData(
       format: ui.ImageByteFormat.png,
     );
 
-    return byteData!
-        .buffer
-        .asUint8List();
+    return byteData!.buffer.asUint8List();
   }
 
-  /// =========================
-  /// EXPORTAÇÃO COMPLETA
-  /// =========================
-
-  Future<void>
-      _exportCompletePackage() async {
-
+  /// ====================================================
+  /// GERAÇÃO DO PACOTE DE DADOS (Imagens + Vetores)
+  /// ====================================================
+  Future<File?> _generateGraphPackage() async {
     try {
-
-      final realValues =
-          widget.realOverride ??
-              widget.iz.real;
-
-      final imagValues =
-          widget.imagOverride ??
-              widget.iz.imag;
-
-      final freqValues =
-          widget.iz.freq;
+      final realValues = widget.realOverride ?? widget.iz.real;
+      final imagValues = widget.imagOverride ?? widget.iz.imag;
+      final freqValues = widget.iz.freq;
 
       final int min = [
         realValues.length,
         imagValues.length,
         freqValues.length,
-      ].reduce(
-        (a, b) => a < b ? a : b,
-      );
-
-      /// =========================
-      /// RAW DATA
-      /// =========================
+      ].reduce((a, b) => a < b ? a : b);
 
       final buffer = StringBuffer();
-
-      buffer.writeln(
-        "real imag freq",
-      );
-
+      buffer.writeln("real imag freq");
       for (int i = 0; i < min; i++) {
-
-        buffer.writeln(
-          "${realValues[i]} "
-          "${imagValues[i]} "
-          "${freqValues[i]}",
-        );
+        buffer.writeln("${realValues[i]} ${imagValues[i]} ${freqValues[i]}");
       }
 
-      /// =========================
-      /// CAPTURA DOS GRÁFICOS
-      /// =========================
-
-      final realGraphBytes =
-          await _captureWidget(
-        realGraphKey,
-      );
-
-      final imagGraphBytes =
-          await _captureWidget(
-        imagGraphKey,
-      );
-
-      /// =========================
-      /// ZIP
-      /// =========================
+      final realGraphBytes = await _captureWidget(realGraphKey);
+      final imagGraphBytes = await _captureWidget(imagGraphKey);
 
       final archive = Archive();
+      final rawData = utf8.encode(buffer.toString());
 
-      final rawData =
-          utf8.encode(
-        buffer.toString(),
-      );
+      archive.addFile(ArchiveFile("raw_data.dat", rawData.length, rawData));
+      archive.addFile(ArchiveFile("real_graph.png", realGraphBytes.length, realGraphBytes));
+      archive.addFile(ArchiveFile("imag_graph.png", imagGraphBytes.length, imagGraphBytes));
 
-      archive.addFile(
-        ArchiveFile(
-          "raw_data.dat",
-          rawData.length,
-          rawData,
-        ),
-      );
+      final configData = utf8.encode(widget.iz.config.toString());
+      archive.addFile(ArchiveFile("config.txt", configData.length, configData));
 
-      archive.addFile(
-        ArchiveFile(
-          "real_graph.png",
-          realGraphBytes.length,
-          realGraphBytes,
-        ),
-      );
-
-      archive.addFile(
-        ArchiveFile(
-          "imag_graph.png",
-          imagGraphBytes.length,
-          imagGraphBytes,
-        ),
-      );
-
-      /// =========================
-      /// CONFIG
-      /// =========================
-
-      final configData =
-          utf8.encode(
-        widget.iz.config.toString(),
-      );
-
-      archive.addFile(
-        ArchiveFile(
-          "config.txt",
-          configData.length,
-          configData,
-        ),
-      );
-
-      /// =========================
-      /// GERA ZIP
-      /// =========================
-
-      final zipData =
-          ZipEncoder()
-              .encode(archive);
-
-      final dir =
-          await getTemporaryDirectory();
-
+      final zipData = ZipEncoder().encode(archive);
+      final dir = await getTemporaryDirectory();
+      
       final file = File(
-        "${dir.path}/eprobe_export_${DateTime.now().millisecondsSinceEpoch % 1000000}.zip",
+        "${dir.path}/graph_snapshot_${DateTime.now().millisecondsSinceEpoch}.zip",
       );
-
-      await file.writeAsBytes(
-        zipData,
-      );
-
-      /// =========================
-      /// SHARE SHEET
-      /// =========================
-
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text:
-            "Exportação eProbe",
-        subject:
-            "Dados e gráficos",
-      );
+      await file.writeAsBytes(zipData);
+      return file;
 
     } catch (e) {
+      print("Erro ao gerar pacote do gráfico: $e");
+      return null;
+    }
+  }
 
+  /// =========================
+  /// EXPORTAÇÃO COMPLETA SHARE
+  /// =========================
+
+  Future<void> _exportCompletePackage() async {
+    final file = await _generateGraphPackage();
+    if (file == null) return;
+
+    try {
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: "Exportação eProbe",
+        subject: "Dados e gráficos",
+      );
+    } catch (e) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        SnackBar(
-          content: Text(
-            "Erro ao exportar: $e",
-          ),
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erro ao exportar: $e")),
       );
     }
   }
@@ -567,10 +468,7 @@ class _GraphViewScreenState
     List<double> x,
     List<double> y,
   ) {
-
-    int min = x.length < y.length
-        ? x.length
-        : y.length;
+    int min = x.length < y.length ? x.length : y.length;
 
     return List.generate(
       min,
@@ -582,62 +480,34 @@ class _GraphViewScreenState
   }
 
   void _showAxisDialog() {
-
     showDialog(
       context: context,
       builder: (context) {
-
         return AlertDialog(
-          title: const Text(
-            "Escala do eixo X",
-          ),
-
+          title: const Text("Escala do eixo X"),
           content: Column(
-            mainAxisSize:
-                MainAxisSize.min,
-
+            mainAxisSize: MainAxisSize.min,
             children: [
-
               RadioListTile<String>(
-                title: const Text(
-                  "Logarítmica",
-                ),
-
-                value:
-                    'logarithmic',
-
+                title: const Text("Logarítmica"),
+                value: 'logarithmic',
                 groupValue: xAxis,
-
                 onChanged: (value) {
-
                   setState(() {
                     xAxis = value!;
                   });
-
-                  Navigator.pop(
-                    context,
-                  );
+                  Navigator.pop(context);
                 },
               ),
-
               RadioListTile<String>(
-                title: const Text(
-                  "Numérica",
-                ),
-
+                title: const Text("Numérica"),
                 value: 'numeric',
-
                 groupValue: xAxis,
-
                 onChanged: (value) {
-
                   setState(() {
                     xAxis = value!;
                   });
-
-                  Navigator.pop(
-                    context,
-                  );
+                  Navigator.pop(context);
                 },
               ),
             ],
@@ -648,134 +518,83 @@ class _GraphViewScreenState
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
+    final realValues = widget.realOverride ?? widget.iz.real;
+    final imagValues = widget.imagOverride ?? widget.iz.imag;
 
-    /// =========================
-    /// DADOS UTILIZADOS
-    /// =========================
+    final realSpots = _spots(widget.iz.freq, realValues);
+    final imagSpots = _spots(widget.iz.freq, imagValues);
 
-    final realValues =
-        widget.realOverride ??
-            widget.iz.real;
-
-    final imagValues =
-        widget.imagOverride ??
-            widget.iz.imag;
-
-    /// =========================
-    /// PONTOS
-    /// =========================
-
-    final realSpots = _spots(
-      widget.iz.freq,
-      realValues,
-    );
-
-    final imagSpots = _spots(
-      widget.iz.freq,
-      imagValues,
-    );
-
-    /// =========================
-    /// CHART DATA
-    /// =========================
-
-    final List<ChartData> realData =
-        realSpots
-            .map(
-              (e) => ChartData(
-                e.x,
-                e.y,
-              ),
-            )
-            .toList();
-
-    final List<ChartData> imagData =
-        imagSpots
-            .map(
-              (e) => ChartData(
-                e.x,
-                e.y,
-              ),
-            )
-            .toList();
-
-    /// =========================
-    /// SEM DADOS
-    /// =========================
+    final List<ChartData> realData = realSpots.map((e) => ChartData(e.x, e.y)).toList();
+    final List<ChartData> imagData = imagSpots.map((e) => ChartData(e.x, e.y)).toList();
 
     if (widget.iz.freq.isEmpty) {
-
       return const Center(
-        child: Text(
-          "Nenhum dado encontrado",
-        ),
+        child: Text("Nenhum dado encontrado"),
       );
     }
 
-    /// =========================
-    /// VIEW
-    /// =========================
-
     return Padding(
-      padding:
-          const EdgeInsets.all(12),
-
+      padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-
           /// =========================
           /// HEADER
           /// =========================
-
           Row(
-            mainAxisAlignment:
-                MainAxisAlignment
-                    .spaceBetween,
-
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-
               Text(
                 widget.title,
-
-                style:
-                    const TextStyle(
+                style: const TextStyle(
                   fontSize: 18,
-                  fontWeight:
-                      FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-
               Row(
                 children: [
-
                   IconButton(
-                    onPressed:
-                        _showAxisDialog,
-
-                    icon: const Icon(
-                      Icons.settings,
-                    ),
+                    onPressed: _showAxisDialog,
+                    icon: const Icon(Icons.settings),
                   ),
                   IconButton(
-                    onPressed:
-                        _exportCompletePackage,
-
-                    icon: const Icon(
-                      Icons.share,
-                    ),
+                    onPressed: _exportCompletePackage,
+                    icon: const Icon(Icons.share),
                   ),
-                  // 
+                  
                   if (!widget.historyMode) ...[
                     IconButton(
-                      onPressed: _exportCompletePackage,
-                      icon: const Icon(Icons.share),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        print("Salvar dados internamente (ainda não implementado)");
+                      onPressed: () async {
+                        // 1. Mostra um feedback de processamento para o usuário
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Capturando gráficos e compilando dataset..."),
+                            duration: Duration(milliseconds: 800),
+                          ),
+                        );
+
+                        // 2. Transforma o estado do gráfico completo em um arquivo físico (.zip contendo fotos e raw_data)
+                        final File? packageFile = await _generateGraphPackage();
+
+                        if (packageFile != null) {
+                          // 3. LOGICA DO MAPA INTERATIVO:
+                          // Aqui enviamos o arquivo gerado e o ID do dataset para o seu gerenciador de mapas.
+                          print("------------------------------------------");
+                          print("SALVANDO SNAPSHOT COMPLETO NO DATASET/MAPA");
+                          print("Dataset Alvo: ${widget.title}");
+                          print("Caminho do Arquivo Gerado: ${packageFile.path}");
+                          print("------------------------------------------");
+
+                          // TODO: Chame aqui a sua função global do mapa ou banco de dados, enviando o `packageFile`.
+                          // Exemplo: MapController.saveGraphToSelectedMarker(file: packageFile, dataset: widget.title);
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: Colors.green,
+                              content: Text("Gráfico salvo com sucesso no mapa (${widget.title})!"),
+                            ),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.save),
                     ),
@@ -788,58 +607,34 @@ class _GraphViewScreenState
           /// =========================
           /// GRÁFICOS
           /// =========================
-
           Expanded(
             child: ListView(
               children: [
-
                 SizedBox(
                   height: 220,
-
-                  child:
-                      RepaintBoundary(
+                  child: RepaintBoundary(
                     key: realGraphKey,
-
                     child: GraphCard(
-                      title:
-                          "Real(Z)",
-
+                      title: "Real(Z)",
                       unit: "Ω",
-
                       data: realData,
-
-                      color:
-                          Colors.red,
-
+                      color: Colors.red,
                       axis: xAxis,
                       xLabel: "Frequência (Hz)",
                       yLabel: "Resistência (Ω)",
                     ),
                   ),
                 ),
-
-                const SizedBox(
-                  height: 12,
-                ),
-
+                const SizedBox(height: 12),
                 SizedBox(
                   height: 220,
-
-                  child:
-                      RepaintBoundary(
+                  child: RepaintBoundary(
                     key: imagGraphKey,
-
                     child: GraphCard(
-                      title:
-                          "Imag(Z)",
-
+                      title: "Imag(Z)",
                       unit: "Ω",
-
                       data: imagData,
-
-                      color:
-                          Colors.green,
-
+                      color: Colors.green,
                       axis: xAxis,
                       xLabel: "Frequência (Hz)",
                       yLabel: "Capacitância (pF)",

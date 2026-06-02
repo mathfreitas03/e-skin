@@ -1,7 +1,8 @@
+import 'dart:io'; // IMPORTANTE: Necessário para usar a classe File
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart'; // IMPORTANTE: Biblioteca para abrir a galeria
 
 import '../controllers/iz_controller.dart';
-
 import '../models/measurement_session.dart';
 import '../models/dataset.dart';
 import '../models/measurement_point.dart';
@@ -10,296 +11,46 @@ import '../models/measurement_data.dart';
 import 'graph_view_screen.dart';
 
 class StatsScreen extends StatefulWidget {
-
   const StatsScreen({
     super.key,
   });
 
   @override
-  State<StatsScreen> createState() =>
-      _StatsScreenState();
+  State<StatsScreen> createState() => _StatsScreenState();
 }
 
-class _StatsScreenState
-    extends State<StatsScreen> {
+class _StatsScreenState extends State<StatsScreen> {
+  late final MeasurementSession session;
+  final Set<String> _selectedDatasetIds = <String>{};
 
-  late final MeasurementSession
-      session;
+  bool get _isSelectionMode => _selectedDatasetIds.isNotEmpty;
 
   @override
   void initState() {
-
     super.initState();
 
-    /// =========================
-    /// SESSÃO EXEMPLO
-    /// =========================
-
     session = MeasurementSession(
-
       id: "session_001",
-
-      name: "Sessão Experimental",
-
+      name: "Medições registradas",
       createdAt: DateTime.now(),
-
       datasets: [
-
-        /// =========================
-        /// DATASET 1
-        /// =========================
-
         DataSet(
-
           id: "fish_001",
-
           name: "Tilápia A",
-
-          imagePath:
-              "assets/images/standard_fish.png",
-
+          imagePath: "assets/images/standard_fish.png",
           points: [
-
             MeasurementPoint(
-
               id: "head",
-
               label: "Cabeça",
-
               x: 0.18,
               y: 0.48,
-
               measurements: [
-
                 MeasurementData(
-
                   id: "m1",
-
-                  timestamp:
-                      DateTime.now(),
-
-                  real: const [
-                    10,
-                    20,
-                    30,
-                    40,
-                  ],
-
-                  imag: const [
-                    5,
-                    10,
-                    15,
-                    20,
-                  ],
-
-                  freq: const [
-                    100,
-                    1000,
-                    10000,
-                    100000,
-                  ],
-                ),
-              ],
-            ),
-
-            MeasurementPoint(
-
-              id: "body",
-
-              label: "Corpo",
-
-              x: 0.45,
-              y: 0.48,
-
-              measurements: [
-
-                MeasurementData(
-
-                  id: "m2",
-
-                  timestamp:
-                      DateTime.now(),
-
-                  real: const [
-                    15,
-                    25,
-                    35,
-                    45,
-                  ],
-
-                  imag: const [
-                    8,
-                    12,
-                    18,
-                    24,
-                  ],
-
-                  freq: const [
-                    100,
-                    1000,
-                    10000,
-                    100000,
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-
-        /// =========================
-        /// DATASET 2
-        /// =========================
-
-        DataSet(
-
-          id: "fish_002",
-
-          name: "Tilápia B",
-
-          imagePath:
-              "assets/images/standard_fish.png",
-
-          points: [
-
-            MeasurementPoint(
-
-              id: "tail",
-
-              label: "Cauda",
-
-              x: 0.18,
-              y: 0.9,
-
-              measurements: [
-
-                MeasurementData(
-
-                  id: "m3",
-
-                  timestamp:
-                      DateTime.now(),
-
-                  real: const [
-                    12,
-                    18,
-                    28,
-                    36,
-                  ],
-
-                  imag: const [
-                    4,
-                    7,
-                    13,
-                    18,
-                  ],
-
-                  freq: const [
-                    100,
-                    1000,
-                    10000,
-                    100000,
-                  ],
-                ),
-              ],
-            ),
-
-            MeasurementPoint(
-
-              id: "dorsal",
-
-              label: "Dorsal",
-
-              x: 0.35,
-              y: 0.5,
-
-              measurements: [
-
-                MeasurementData(
-
-                  id: "m4",
-
-                  timestamp:
-                      DateTime.now(),
-
-                  real: const [
-                    9,
-                    17,
-                    24,
-                    38,
-                  ],
-
-                  imag: const [
-                    2,
-                    5,
-                    9,
-                    14,
-                  ],
-
-                  freq: const [
-                    100,
-                    1000,
-                    10000,
-                    100000,
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-
-        /// =========================
-        /// DATASET 3
-        /// =========================
-
-        DataSet(
-
-          id: "fish_003",
-
-          name: "Tilápia C",
-
-          imagePath:
-              "assets/images/standard_fish.png",
-
-          points: [
-
-            MeasurementPoint(
-
-              id: "ventral",
-
-              label: "Ventral",
-
-              x: 0.55,
-              y: 0.60,
-
-              measurements: [
-
-                MeasurementData(
-
-                  id: "m5",
-
-                  timestamp:
-                      DateTime.now(),
-
-                  real: const [
-                    11,
-                    21,
-                    31,
-                    41,
-                  ],
-
-                  imag: const [
-                    3,
-                    8,
-                    12,
-                    19,
-                  ],
-
-                  freq: const [
-                    100,
-                    1000,
-                    10000,
-                    100000,
-                  ],
+                  timestamp: DateTime.now(),
+                  real: const [10, 20, 30, 40],
+                  imag: const [5, 10, 15, 20],
+                  freq: const [100, 1000, 10000, 100000],
                 ),
               ],
             ),
@@ -309,99 +60,311 @@ class _StatsScreenState
     );
   }
 
-  /// =========================
-  /// ABRIR DATASET
-  /// =========================
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedDatasetIds.contains(id)) {
+        _selectedDatasetIds.remove(id);
+      } else {
+        _selectedDatasetIds.add(id);
+      }
+    });
+  }
 
-  void _openDataset(
-    DataSet dataset,
-  ) {
+  void _clearSelection() {
+    setState(() {
+      _selectedDatasetIds.clear();
+    });
+  }
 
+  void _deleteSelectedDatasets() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Excluir Datasets"),
+          content: Text(
+            "Tem certeza que deseja excluir ${_selectedDatasetIds.length} dataset(s) selecionado(s)?",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancelar"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                setState(() {
+                  session.datasets.removeWhere(
+                    (dataset) => _selectedDatasetIds.contains(dataset.id),
+                  );
+                  _selectedDatasetIds.clear();
+                });
+                Navigator.pop(context);
+              },
+              child: const Text("Excluir"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openDataset(DataSet dataset) {
     Navigator.push(
-
       context,
-
       MaterialPageRoute(
-
-        builder: (_) =>
-            _DatasetMapScreen(
+        builder: (_) => _DatasetMapScreen(
           dataset: dataset,
         ),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  /// ==========================================
+  /// COMPONENTE AUXILIAR PARA RENDERIZAR IMAGEM
+  /// ==========================================
+  /// Método utilitário para carregar dinamicamente se a imagem vem do Asset ou da Galeria (File)
+  static Widget _buildDatasetImage(String path, {required double width, required double height, required BoxFit fit}) {
+    if (path.startsWith('assets/')) {
+      return Image.asset(
+        path,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(width, height),
+      );
+    } else {
+      return Image.file(
+        File(path),
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => _buildImageError(width, height),
+      );
+    }
+  }
 
-    return Padding(
+  static Widget _buildImageError(double width, double height) {
+    return Container(
+      width: width,
+      height: height,
+      color: Colors.grey[300],
+      child: const Icon(Icons.image_not_supported),
+    );
+  }
 
-      padding: const EdgeInsets.all(12),
+  /// ==========================================
+  /// COLETAR DADOS E CRIAR DATASET (COM GALERIA)
+  /// ==========================================
+  void _createNewDatasetDialog() {
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController();
+    
+    // Estado local do Dialog para armazenar o caminho escolhido da galeria
+    String selectedImagePath = "assets/images/standard_fish.png"; 
 
-      child: ListView.builder(
+    final ImagePicker picker = ImagePicker();
 
-        itemCount:
-            session.datasets.length,
+    showDialog(
+      context: context,
+      builder: (context) {
+        // StatefulBuilder permite atualizar a UI dentro do Dialog quando o usuário escolher uma foto
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            
+            Future<void> pickImageFromGallery() async {
+              final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+              if (image != null) {
+                setDialogState(() {
+                  selectedImagePath = image.path; // Guarda o caminho do arquivo temporário do celular
+                });
+              }
+            }
 
-        itemBuilder: (context, index) {
-
-          final dataset =
-              session.datasets[index];
-
-          return Card(
-
-            elevation: 3,
-
-            margin:
-                const EdgeInsets.only(
-              bottom: 12,
-            ),
-
-            child: ListTile(
-
-              leading: ClipRRect(
-
-                borderRadius:
-                    BorderRadius.circular(8),
-
-                child: Image.asset(
-
-                  dataset.imagePath,
-
-                  width: 60,
-
-                  fit: BoxFit.cover,
+            return AlertDialog(
+              title: const Text("Novo Dataset"),
+              content: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          labelText: "Nome do Dataset",
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return "Por favor, insira um nome.";
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Preview da Imagem Selecionada
+                      const Text(
+                        "Imagem de Fundo:",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: _buildDatasetImage(
+                          selectedImagePath,
+                          width: 150,
+                          height: 100,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      
+                      // Botão para abrir a galeria
+                      OutlinedButton.icon(
+                        onPressed: pickImageFromGallery,
+                        icon: const Icon(Icons.photo_library),
+                        label: const Text("Selecionar da Galeria"),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancelar"),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (formKey.currentState!.validate()) {
+                      final uniqueId = "fish_${DateTime.now().millisecondsSinceEpoch}";
 
-              title: Text(
-                dataset.name,
-              ),
+                      final newDataset = DataSet(
+                        id: uniqueId,
+                        name: nameController.text.trim(),
+                        imagePath: selectedImagePath, // Salva o caminho (Asset ou File)
+                        points: [],
+                      );
 
-              subtitle: Text(
-                "${dataset.points.length} pontos",
-              ),
+                      setState(() {
+                        session.datasets.add(newDataset);
+                      });
 
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-              ),
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text("Criar"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
-              onTap: () =>
-                  _openDataset(
-                dataset,
-              ),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: _isSelectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _clearSelection,
+              )
+            : null,
+        title: Text(
+          _isSelectionMode
+              ? "${_selectedDatasetIds.length} selecionados"
+              : session.name,
+        ),
+        actions: [
+          if (_isSelectionMode)
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: _deleteSelectedDatasets,
             ),
-          );
-        },
+        ],
       ),
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: ListView.builder(
+          itemCount: session.datasets.length,
+          itemBuilder: (context, index) {
+            final dataset = session.datasets[index];
+            final isSelected = _selectedDatasetIds.contains(dataset.id);
+
+            return Card(
+              elevation: isSelected ? 6 : 3,
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: isSelected
+                  ? RoundedRectangleBorder(
+                      side: const BorderSide(color: Colors.green, width: 2),
+                      borderRadius: BorderRadius.circular(12),
+                    )
+                  : null,
+              color: isSelected ? Colors.green[50] : null,
+              child: ListTile(
+                leading: isSelected
+                    ? Container(
+                        width: 60,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.check_circle, color: Colors.green),
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: _buildDatasetImage(
+                          dataset.imagePath,
+                          width: 80,
+                          height: 60,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                title: Text(
+                  dataset.name,
+                  style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+                subtitle: Text("${dataset.points.length} pontos"),
+                trailing: _isSelectionMode
+                    ? null
+                    : const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  if (_isSelectionMode) {
+                    _toggleSelection(dataset.id);
+                  } else {
+                    _openDataset(dataset);
+                  }
+                },
+                onLongPress: () {
+                  _toggleSelection(dataset.id);
+                },
+              ),
+            );
+          },
+        ),
+      ),
+      floatingActionButton: _isSelectionMode
+          ? null
+          : FloatingActionButton(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              shape: const CircleBorder(),
+              onPressed: _createNewDatasetDialog,
+              child: const Icon(Icons.add),
+            ),
     );
   }
 }
 
-/// MAPA DO DATASET
-/// =========================
-/// MAPA DO DATASET
-/// =========================
+// ==========================================
+// MAPA INTERATIVO DO DATASET
+// ==========================================
 class _DatasetMapScreen extends StatelessWidget {
   final DataSet dataset;
 
@@ -441,23 +404,18 @@ class _DatasetMapScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Definimos uma proporção padrão para a imagem (ex: 4/3, 16/9 ou 1.0 se for quadrada).
-    // Vamos assumir uma proporção comum baseada na foto típica de um peixe (ex: 4:3 -> 1.33 ou 16:9 -> 1.77)
-    // Se a sua imagem for quadrada, use 1.0. Se for retangular padrão, 4 / 3 costuma funcionar bem.
-    const double imageAspectRatio = 16 / 9; 
+    const double imageAspectRatio = 16 / 10;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(dataset.name),
       ),
-      body: Center( // Garante que o container fique centralizado na tela
+      body: Center(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Buscamos as dimensões máximas permitidas pela tela
             final maxW = constraints.maxWidth;
             final maxH = constraints.maxHeight;
 
-            // Calculamos o tamanho real que o AspectRatio vai ocupar (reproduzindo o BoxFit.contain)
             double finalWidth = maxW;
             double finalHeight = maxW / imageAspectRatio;
 
@@ -469,26 +427,31 @@ class _DatasetMapScreen extends StatelessWidget {
             return Container(
               width: finalWidth,
               height: finalHeight,
-              color: Colors.black12, // Opcional: para ver a área exata da imagem
+              color: Colors.black12,
               child: Stack(
-                clipBehavior: Clip.none, // Evita que pontos sumam nas bordas
+                clipBehavior: Clip.none,
                 children: [
-                  // A imagem agora ocupa 100% do container que tem a proporção exata dela
+                  // Imagem de Fundo (Dinâmica: Aceita Asset ou Galeria)
                   Positioned.fill(
-                    child: Image.asset(
-                      dataset.imagePath,
-                      fit: BoxFit.fill, // Pode usar fill porque o container já está na proporção correta
-                    ),
+                    child: dataset.imagePath.startsWith('assets/')
+                        ? Image.asset(
+                            dataset.imagePath,
+                            fit: BoxFit.fill,
+                          )
+                        : Image.file(
+                            File(dataset.imagePath),
+                            fit: BoxFit.fill,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.broken_image, size: 50),
+                            ),
+                          ),
                   ),
-
-                  // Os pontos agora se posicionam em relação ao container idêntico à imagem
                   ...dataset.points.map(
                     (point) {
                       const double markerSize = 28.0;
 
                       return Positioned(
-                        // Subtraímos metade do tamanho do marcador (14) para que o centro do 
-                        // círculo seja exatamente a coordenada X e Y (evita desalinhamento)
                         left: (finalWidth * point.x) - (markerSize / 2),
                         top: (finalHeight * point.y) - (markerSize / 2),
                         child: GestureDetector(
