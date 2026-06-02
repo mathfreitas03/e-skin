@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'controllers/ble_controller.dart';
 import 'package:eprobe/permissions.dart';
 import 'dart:async';
-
 import 'package:eprobe/widgets/navbar.dart';
 import 'package:eprobe/models/connection_status.dart';
 
@@ -69,7 +68,7 @@ class _MainLayoutState extends State<MainLayout> {
   StreamSubscription<BleConnectionStatus>? _connSub;
 
   double _temperature = 0;
-  int _pressure = 0;
+  double _pressure = 0;
 
   @override
   void initState() {
@@ -101,8 +100,15 @@ class _MainLayoutState extends State<MainLayout> {
           iz.imag.isNotEmpty) {
 
         setState(() {
-          _temperature = 25;
-          _pressure = 0;
+          if(iz.temperatura != null) {
+            _temperature = iz.temperatura!;
+          }
+          if((iz.forcaTareada != null)) {
+            _pressure = iz.forcaTareada!;
+          }
+          else {
+            _pressure = 0;
+          }
         });
       }
     });
@@ -202,6 +208,8 @@ class _MainLayoutState extends State<MainLayout> {
 
               setState(() {
                 _selectedDataset = v;
+                _temperature = iz.temperatura!;
+                _pressure = iz.forcaTareada!;
               });
 
               _sendControlCommand(v);

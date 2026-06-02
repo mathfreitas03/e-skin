@@ -1,5 +1,7 @@
 import 'package:eprobe/screens/graph_view_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 // import 'package:fl_chart/fl_chart.dart';
 // import '../widgets/graph_card.dart';
 import '../controllers/iz_controller.dart';
@@ -10,7 +12,7 @@ class HomeScreen extends StatefulWidget {
   final BleConnectionStatus connStatus;
   final IzController iz;
   final double temperature;
-  final int pressure;
+  final double pressure;
   final String selectedDataset;
   final String controlConfirmation;
   final Function(String) onDatasetChanged;
@@ -212,21 +214,23 @@ class _HomeScreenState extends State<HomeScreen> {
     //     realSpots.map((e) => ChartData(e.x, e.y)).toList();
 
     // final List<ChartData> imagData =
-    //     imagSpots.map((e) => ChartData(e.x, e.y)).toList();
+    //     imagSpots.map((e) => ChartData(e.x, e.y)).toList()
+
+    if(widget.connStatus != BleConnectionStatus.connected) {
+      return const Center(child: Text("Nenhum dispositivo conectado."));
+    }
 
     return Padding(
       padding: const EdgeInsets.all(12),
       child: ListView(
         children: [
-
-          /// =========================
           /// GRÁFICOS E CONFIGRAÇÕES DA SONDA
-          /// =========================
           
           DefaultTabController(
           length: 2,
           child: SizedBox(
-            height: 500, // altura fixa
+            height: 580, // altura fixa
+            width: double.infinity,
             child: Column(
               children: [
 
@@ -238,6 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
 
                 Expanded(
+                  // TODO: REVERTER DEPOIS
                   child: TabBarView(
                     children: [
                       GraphViewScreen(
@@ -248,12 +253,53 @@ class _HomeScreenState extends State<HomeScreen> {
                             ? "Medição Compensada"
                             : "Nova Medição",
                         xAxis: "logarithmic",
+                        historyMode: false,
                       ),
                       Center(
                         child: IzConfigCard(config: iz.config,)
                       ),
                     ],
                   ),
+
+// MODO DE DEBUG (GRÁFICO ESTÁTICO)
+//                   child: TabBarView(
+//   children: [
+
+//     FutureBuilder<String>(
+//       future: rootBundle.loadString(
+//         "assets/logs/log1.txt",
+//       ),
+
+//       builder: (context, snapshot) {
+
+//         if (!snapshot.hasData) {
+//           return const Center(
+//             child: CircularProgressIndicator(),
+//           );
+//         }
+
+//         final staticIz = IzController();
+//         staticIz.process(snapshot.data!);
+
+//         return GraphViewScreen(
+//           iz: staticIz,
+
+//           title: applyTare
+//               ? "Medição Compensada"
+//               : "Nova Medição",
+
+//           xAxis: "logarithmic",
+//         );
+//       },
+//     ),
+
+//     Center(
+//       child: IzConfigCard(
+//         config: iz.config,
+//       ),
+//     ),
+//   ],
+// ),
                 ),
               ],
             ),
@@ -286,8 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
 
                         Text(
-                          // "${widget.temperature.toStringAsFixed(1)} °C",
-                          "N/A",
+                          "${widget.temperature.toStringAsFixed(1)} °C",
                         ),
                       ],
                     ),
@@ -314,8 +359,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
 
                         Text(
-                          // "${widget.pressure} g",
-                          "N/A",
+                           "${widget.pressure} g",
                         ),
                       ],
                     ),
@@ -362,9 +406,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _controller.text;
 
                             if (value.isNotEmpty) {
+                              if(value.toLowerCase() != "iwf"){
+                                widget.onDatasetChanged(value.toUpperCase());
+                              }
+                              else{
                               widget.onDatasetChanged(
-                                value.toUpperCase(),
+                                "IwF",
                               );
+                              }
                             }
                           },
 
@@ -373,27 +422,27 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
 
-                        ElevatedButton(
+                        // ElevatedButton(
 
-                          onPressed: () {
-                            final value =
-                                _controller.text;
-                            if(value.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Digite um comando para iniciar o stream"),
-                                ),
-                              );
-                            }
-                            else {
-                            startStream();
-                            }
-                            },
+                        //   onPressed: () {
+                        //     final value =
+                        //         _controller.text;
+                        //     if(value.isEmpty) {
+                        //         ScaffoldMessenger.of(context).showSnackBar(
+                        //         const SnackBar(
+                        //           content: Text("Digite um comando para iniciar o stream"),
+                        //         ),
+                        //       );
+                        //     }
+                        //     else {
+                        //     startStream();
+                        //     }
+                        //     },
 
-                          child: const Text(
-                            "Modo Stream",
-                          ),
-                        ),
+                        //   child: const Text(
+                        //     "Modo Stream",
+                        //   ),
+                        // ),
                       ],
 
                       if (streaming) ...[

@@ -1,0 +1,2 @@
+W/c.egluco.e_skin(11411): userfaultfd: MOVE ioctl seems unsupported: Connection timed out
+I/c.egluco.e_skin(11411): Background concurrent mark compact GC freed 24MB AllocSpace bytes, 5(96KB) LOS objects, 86% free, 3743KB/27MB, paused 350us,5.319ms total 55.221ms

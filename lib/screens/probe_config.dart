@@ -35,10 +35,8 @@ class _IzConfigCardState extends State<IzConfigCard> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.settings),
-                  SizedBox(width: 8),
                   Text(
-                    "Configuração IZ",
+                    "Configuração da Sonda",
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,

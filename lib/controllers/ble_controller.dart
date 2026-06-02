@@ -63,6 +63,26 @@ class BleController {
   if (esp32 == null) return false;
 
   try {
+    bool finished = false;
+
+    // timeout manual
+    final timeout = Timer(
+      const Duration(seconds: 15),
+      () async {
+        if (!finished) {
+          print("Timeout de conexão!");
+
+          finished = true;
+
+          _connectionController.add(
+            BleConnectionStatus.disconnected,
+          );
+
+          await _connectionSub?.cancel();
+        }
+      },
+    );
+
     _connectionSub = ble
         .connectToDevice(id: esp32!.id)
         .listen((update) async {
@@ -80,7 +100,7 @@ class BleController {
 
           negotiateMTU(ble, esp32!.id);
           await _startNotificationListener();
-
+          finished = true;
           break;
 
         case DeviceConnectionState.disconnecting:
@@ -130,7 +150,6 @@ class BleController {
 
     // final chunk = utf8.decode(data, allowMalformed: true);
     final chunk = String.fromCharCodes(data); // chunk alternativo
-
     if (chunk.isEmpty) return;
 
     _rxBuffer += chunk;
