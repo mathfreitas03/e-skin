@@ -323,6 +323,8 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:archive/archive.dart';
+import 'package:eprobe/models/measurement_data.dart';
+import 'package:eprobe/screens/stats_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -562,43 +564,81 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
                     icon: const Icon(Icons.share),
                   ),
                   
+                  // if (!widget.historyMode) ...[
+                  //   IconButton(
+                  //     onPressed: () async {
+                  //       // 1. Mostra um feedback de processamento para o usuário
+                  //       ScaffoldMessenger.of(context).showSnackBar(
+                  //         const SnackBar(
+                  //           content: Text("Capturando gráficos e compilando dataset..."),
+                  //           duration: Duration(milliseconds: 800),
+                  //         ),
+                  //       );
+
+                  //       // 2. Transforma o estado do gráfico completo em um arquivo físico (.zip contendo fotos e raw_data)
+                  //       final File? packageFile = await _generateGraphPackage();
+
+                  //       if (packageFile != null) {
+                  //         // 3. LOGICA DO MAPA INTERATIVO:
+                  //         // Aqui enviamos o arquivo gerado e o ID do dataset para o seu gerenciador de mapas.
+                  //         print("------------------------------------------");
+                  //         print("SALVANDO SNAPSHOT COMPLETO NO DATASET/MAPA");
+                  //         print("Dataset Alvo: ${widget.title}");
+                  //         print("Caminho do Arquivo Gerado: ${packageFile.path}");
+                  //         print("------------------------------------------");
+
+                  //         // TODO: Chame aqui a sua função global do mapa ou banco de dados, enviando o `packageFile`.
+                  //         // Exemplo: MapController.saveGraphToSelectedMarker(file: packageFile, dataset: widget.title);
+
+                  //         ScaffoldMessenger.of(context).showSnackBar(
+                  //           SnackBar(
+                  //             backgroundColor: Colors.green,
+                  //             content: Text("Gráfico salvo com sucesso no mapa (${widget.title})!"),
+                  //           ),
+                  //         );
+                  //       }
+                  //     },
+                  //     icon: const Icon(Icons.save),
+                  //   ),
+                  // ]
                   if (!widget.historyMode) ...[
-                    IconButton(
-                      onPressed: () async {
-                        // 1. Mostra um feedback de processamento para o usuário
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Capturando gráficos e compilando dataset..."),
-                            duration: Duration(milliseconds: 800),
-                          ),
-                        );
+  IconButton(
+    onPressed: () {
+      // 1. Captura os valores atuais considerando possíveis overrides/taras
+      final currentReal = widget.realOverride ?? widget.iz.real;
+      final currentImag = widget.imagOverride ?? widget.iz.imag;
+      final currentFreq = widget.iz.freq;
 
-                        // 2. Transforma o estado do gráfico completo em um arquivo físico (.zip contendo fotos e raw_data)
-                        final File? packageFile = await _generateGraphPackage();
+      // 2. Instancia o objeto de dados estruturados com um ID único baseado em timestamp
+      final measurementToSave = MeasurementData(
+        id: "m_captured_${DateTime.now().millisecondsSinceEpoch}",
+        timestamp: DateTime.now(),
+        real: List<double>.from(currentReal),
+        imag: List<double>.from(currentImag),
+        freq: List<double>.from(currentFreq),
+      );
 
-                        if (packageFile != null) {
-                          // 3. LOGICA DO MAPA INTERATIVO:
-                          // Aqui enviamos o arquivo gerado e o ID do dataset para o seu gerenciador de mapas.
-                          print("------------------------------------------");
-                          print("SALVANDO SNAPSHOT COMPLETO NO DATASET/MAPA");
-                          print("Dataset Alvo: ${widget.title}");
-                          print("Caminho do Arquivo Gerado: ${packageFile.path}");
-                          print("------------------------------------------");
+      // Feedback visual rápido
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Preparando dados. Selecione o dataset a seguir..."),
+          duration: Duration(milliseconds: 600),
+        ),
+      );
 
-                          // TODO: Chame aqui a sua função global do mapa ou banco de dados, enviando o `packageFile`.
-                          // Exemplo: MapController.saveGraphToSelectedMarker(file: packageFile, dataset: widget.title);
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: Colors.green,
-                              content: Text("Gráfico salvo com sucesso no mapa (${widget.title})!"),
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.save),
-                    ),
-                  ]
+      // 3. Navega para a StatsScreen passando a medição que acabamos de capturar do gráfico
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => StatsScreen(
+            currentMeasurementToSave: measurementToSave,
+          ),
+        ),
+      );
+    },
+    icon: const Icon(Icons.save),
+  ),
+]
                 ],
               ),
             ],

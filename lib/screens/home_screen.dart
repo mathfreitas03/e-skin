@@ -663,7 +663,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // ALIMENTAÇÃO DO CONTROLLER DE DEBUG:
       // O método process(data) deve internamente popular o _staticIz.real, 
       // _staticIz.imag e principalmente o _staticIz.freq para o gráfico aceitar.
-      _staticIz.process(data);
+      // _staticIz.process(data);
       
       if (_staticIz.real.isNotEmpty) {
       if (widget.iz.freq.isNotEmpty && widget.iz.freq.length == _staticIz.real.length) {
@@ -755,9 +755,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final debugCorrectedImag = _applyTare(_staticIz.imag, tareImag);
 
   // TODO: REVERTER APÓS DEBUG
-    // if(widget.connStatus != BleConnectionStatus.connected) {
-    //   return const Center(child: Text("Nenhum dispositivo conectado."));
-    // }
+    if(widget.connStatus != BleConnectionStatus.connected) {
+      return const Center(child: Text("Nenhum dispositivo conectado."));
+    }
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -767,36 +767,36 @@ class _HomeScreenState extends State<HomeScreen> {
           /// ====================================================
           /// SEÇÃO DO GRÁFICO (Sempre visível e fixa no topo)
           /// ====================================================
-          SizedBox(
-            height: 520, // Ajustado para dar espaço suficiente aos dois gráficos internos do GraphViewScreen
-            width: double.infinity,
-            child: FutureBuilder<String>(
-              future: _loadLogFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done || !snapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
+          // SizedBox(
+          //   height: 520, // Ajustado para dar espaço suficiente aos dois gráficos internos do GraphViewScreen
+          //   width: double.infinity,
+          //   child: FutureBuilder<String>(
+          //     future: _loadLogFuture,
+          //     builder: (context, snapshot) {
+          //       if (snapshot.connectionState != ConnectionState.done || !snapshot.hasData) {
+          //         return const Center(
+          //           child: CircularProgressIndicator(),
+          //         );
+          //       }
 
-                // ADAPTAÇÃO DO CONTROLLER DE DEBUG:
-                // Passamos o `_staticIz` no parâmetro `iz`. Assim, o gráfico original vai ler 
-                // `widget.iz.freq` direto do arquivo de log, passando na validação de dados vazios.
-                return GraphViewScreen(
-                  iz: _staticIz, 
-                  realOverride: debugCorrectedReal,
-                  imagOverride: debugCorrectedImag,
-                  title: applyTare
-                      ? "Medição Compensada"
-                      : "Nova Medição",
-                  xAxis: "logarithmic",
-                  historyMode: false,
-                );
-              },
-            ),
-          ),
+          //       // ADAPTAÇÃO DO CONTROLLER DE DEBUG:
+          //       // Passamos o `_staticIz` no parâmetro `iz`. Assim, o gráfico original vai ler 
+          //       // `widget.iz.freq` direto do arquivo de log, passando na validação de dados vazios.
+          //       return GraphViewScreen(
+          //         iz: _staticIz, 
+          //         realOverride: debugCorrectedReal,
+          //         imagOverride: debugCorrectedImag,
+          //         title: applyTare
+          //             ? "Medição Compensada"
+          //             : "Nova Medição",
+          //         xAxis: "logarithmic",
+          //         historyMode: false,
+          //       );
+          //     },
+          //   ),
+          // ),
 
-          /* // MODO PRODUÇÃO EM TEMPO REAL: 
+          // MODO PRODUÇÃO EM TEMPO REAL: 
           SizedBox(
             height: 520,
             width: double.infinity,
@@ -809,7 +809,7 @@ class _HomeScreenState extends State<HomeScreen> {
               historyMode: false,
             ),
           ),
-          */
+          
 
           const SizedBox(height: 12),
 
@@ -937,7 +937,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           onPressed: () {
                             final value =
                                 _controller.text;
-
                             if (value.isNotEmpty) {
                               if(value.toLowerCase() != "iwf"){
                                 widget.onDatasetChanged(value.toUpperCase());
