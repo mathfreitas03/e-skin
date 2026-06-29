@@ -1,29 +1,170 @@
+// class IzController {
+//   List<double> real = [];
+//   List<double> imag = [];
+//   List<double> freq = [];
+
+//   void process(String raw) {
+//     real = [];
+//     imag = [];
+//     freq = [];
+
+//     //  pega só até o primeiro bloco completo
+    
+//     final block = raw.contains("@") ? raw.split("@").first : raw;
+    
+
+//     //  quebra linha corretamente (Windows/Linux)
+//     final lines = block.split(RegExp(r'\r?\n'));
+//     print("Quantidade de linhas: ${lines.length}");
+    
+//     for (var line in lines) {
+//       final cleanLine = line.trim();
+
+//       if (!cleanLine.contains("&")) continue;
+
+//       //  split seguro ignorando espaços
+//       final parts = cleanLine.split("&").map((e) => e.trim()).toList();
+
+//       if (parts.length < 3) continue;
+
+//       final r = double.tryParse(parts[0]);
+//       final im = double.tryParse(parts[1]);
+//       final f = double.tryParse(parts[2]);
+
+//       if (r != null && im != null && f != null) {
+//         real.add(r);
+//         imag.add(im);
+//         freq.add(f);
+//       }
+//     }
+
+//     if (freq.isEmpty) {
+//       print("ERRO: Nenhum dado IZ encontrado");
+//       return;
+//     }
+
+//     //  ordena por frequência
+//     final data = List.generate(freq.length, (i) {
+//       return {
+//         "f": freq[i],
+//         "r": real[i],
+//         "i": imag[i],
+//       };
+//     });
+
+//     data.sort((a, b) => (a["f"] as double).compareTo(b["f"] as double));
+
+//     freq = data.map((e) => e["f"] as double).toList();
+//     real = data.map((e) => e["r"] as double).toList();
+//     imag = data.map((e) => e["i"] as double).toList();
+
+//     //  DEBUG
+//     print("DEBUG IZ:");
+//     print("freq: ${freq.length}");
+//     print("real: ${real.length}");
+//     print("imag: ${imag.length}");
+//   }
+
+// }
+
+// VERSÃO PARA PROCESSAR MENSAGENS DE CONFIGURAÇÃO
 class IzController {
   List<double> real = [];
   List<double> imag = [];
   List<double> freq = [];
+  double? temperatura;
+  double? forca;
+  double? forcaTareada;
+  // NOVO: armazenamento da configuração
+  Map<String, String> config = {};
 
   void process(String raw) {
     real = [];
     imag = [];
     freq = [];
+    config = {};
+     
 
-    //  pega só até o primeiro bloco completo
-    
+
+    final configMatch = RegExp(
+      r'------- Saved Configuration -------([\s\S]*?)----------------------------------',
+    ).firstMatch(raw);
+
+    if (configMatch != null) {
+      final configBlock = configMatch.group(1)!;
+
+      final configLines = configBlock.split(RegExp(r'\r?\n'));
+
+      for (var line in configLines) {
+        final clean = line.trim();
+
+        if (clean.isEmpty) continue;
+
+        // separa por ":" apenas na primeira ocorrência
+        final idx = clean.indexOf(":");
+
+        if (idx == -1) continue;
+
+        final key = clean.substring(0, idx).trim();
+        final value = clean.substring(idx + 1).trim();
+
+        config[key] = value;
+      }
+
+      print("CONFIGURAÇÃO CARREGADA:");
+      print(config);
+    }
+
+    // Processamento de temperatura e forças
+
+    final simpleMatch = RegExp(
+      r'ok\s*\r?\n\s*\r?\n\s*([^\r\n@]+)',
+      caseSensitive: false,
+    ).firstMatch(raw);
+
+    if (simpleMatch != null) {
+      final dataLine = simpleMatch.group(1)!.trim();
+
+      final parts =
+          dataLine.split("&").map((e) => e.trim()).toList();
+
+      if (parts.length >= 3) {
+        temperatura = double.tryParse(parts[0]);
+        forca = double.tryParse(parts[0]);
+        forcaTareada = double.tryParse(parts[1]);
+
+        print("DADOS SIMPLES RECEBIDOS:");
+        print("Temperatura: $temperatura");
+        print("Força: $forca");
+        print("Força tareada: $forcaTareada");
+
+        return;
+      }
+    }
+
+    // =========================
+    // PROCESSA DADOS IZ
+    // =========================
+
+    // pega somente conteúdo antes do @
     final block = raw.contains("@") ? raw.split("@").first : raw;
-    
 
-    //  quebra linha corretamente (Windows/Linux)
+    // quebra linhas corretamente
     final lines = block.split(RegExp(r'\r?\n'));
+
     print("Quantidade de linhas: ${lines.length}");
-    
+
+    int i = 0;
     for (var line in lines) {
       final cleanLine = line.trim();
+      print("Linha ${i}: ${line}");
+      i++;
 
+      // ignora linhas que não possuem formato IZ
       if (!cleanLine.contains("&")) continue;
 
-      //  split seguro ignorando espaços
-      final parts = cleanLine.split("&").map((e) => e.trim()).toList();
+      final parts =
+          cleanLine.split("&").map((e) => e.trim()).toList();
 
       if (parts.length < 3) continue;
 
@@ -38,12 +179,24 @@ class IzController {
       }
     }
 
+    // =========================
+    // VALIDAÇÃO
+    // =========================
+    
+
     if (freq.isEmpty) {
-      print("ERRO: Nenhum dado IZ encontrado");
+      print("Nenhum dado IZ encontrado.");
+
+      // ainda pode existir configuração válida
+      if (config.isNotEmpty) {
+        print("Somente configuração recebida.");
+      }
+
       return;
     }
 
-    //  ordena por frequência
+    // ORDENA POR FREQUÊNCIA
+
     final data = List.generate(freq.length, (i) {
       return {
         "f": freq[i],
@@ -52,17 +205,26 @@ class IzController {
       };
     });
 
-    data.sort((a, b) => (a["f"] as double).compareTo(b["f"] as double));
+    data.sort(
+      (a, b) => (a["f"] as double)
+          .compareTo(b["f"] as double),
+    );
 
     freq = data.map((e) => e["f"] as double).toList();
     real = data.map((e) => e["r"] as double).toList();
     imag = data.map((e) => e["i"] as double).toList();
 
-    //  DEBUG
+    // =========================
+    // DEBUG
+    // =========================
+
     print("DEBUG IZ:");
     print("freq: ${freq.length}");
     print("real: ${real.length}");
     print("imag: ${imag.length}");
+    print("temperatura ${real[0]}");
+    print("força ${freq[0]}");
+    print("força tareada ${imag[0]}");
   }
-
 }
+

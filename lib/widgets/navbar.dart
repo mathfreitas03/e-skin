@@ -163,7 +163,7 @@ class _NavbarState extends State<Navbar> {
 
       if (wasConnected &&
           newStatus == BleConnectionStatus.disconnected) {
-
+          wasConnected == false;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Conexão perdida'),
@@ -171,6 +171,14 @@ class _NavbarState extends State<Navbar> {
           ),
         );
       }
+        else if(newStatus == BleConnectionStatus.disconnected){
+          ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível encontrar o dispositivo.'),
+            duration: Duration(seconds: 2),
+          ),
+          );
+        }
     });
   }
 
@@ -185,8 +193,7 @@ class _NavbarState extends State<Navbar> {
       case BleConnectionStatus.connected:
         return Colors.green;
 
-      case BleConnectionStatus.connecting:
-      case BleConnectionStatus.scanning:
+      case BleConnectionStatus.connecting || BleConnectionStatus.scanning:
         return Colors.yellow;
 
       case BleConnectionStatus.disconnected:
