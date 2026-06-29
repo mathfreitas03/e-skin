@@ -154,8 +154,11 @@ class IzController {
 
     print("Quantidade de linhas: ${lines.length}");
 
+    int i = 0;
     for (var line in lines) {
       final cleanLine = line.trim();
+      print("Linha ${i}: ${line}");
+      i++;
 
       // ignora linhas que não possuem formato IZ
       if (!cleanLine.contains("&")) continue;
