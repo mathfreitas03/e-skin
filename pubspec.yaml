@@ -42,6 +42,8 @@ dependencies:
   path_provider: ^2.1.5
   share_plus: ^12.0.2
   image_picker: ^1.1.2
+  bluetooth_enable_fork: ^0.1.1
+  sqflite: ^2.0.0+3
 
 dev_dependencies:
   flutter_test:

@@ -41,21 +41,13 @@ class GraphCard extends StatelessWidget {
       );
     }
 
-    /// =========================
-    /// ZOOM CONFIG
-    /// =========================
 
     final ZoomPanBehavior zoomPanBehavior =
         ZoomPanBehavior(
-
       enablePinching: true,
-
       enablePanning: true,
-
       enableDoubleTapZooming: true,
-
       enableMouseWheelZooming: true,
-
       zoomMode: ZoomMode.xy,
     );
 

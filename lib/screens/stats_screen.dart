@@ -1,44 +1,29 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:eprobe/database/db.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-
 import '../controllers/iz_controller.dart';
-import '../models/measurement_session.dart';
 import '../models/dataset.dart';
+import '../models/dataset_point.dart';
 import '../models/measurement_point.dart';
-import '../models/measurement_data.dart';
-
 import 'graph_view_screen.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
-/// NOTIFIER GLOBAL/ESTÁTICO PARA MANTER OS DATASETS VIVOS NA MEMÓRIA
-/// Substitua isso pelo seu repositório real ou singleton do banco de dados (Hive/Sqflite), se houver.
-final ValueNotifier<List<DataSet>> globalDatasetsNotifier = ValueNotifier<List<DataSet>>([
-  DataSet(
-    id: "fish_001",
-    name: "Tilápia A",
-    imagePath: "assets/images/standard_fish.png",
-    points: [
-      MeasurementPoint(
-        id: "head",
-        label: "Cabeça",
-        x: 0.18,
-        y: 0.48,
-        measurements: [
-          MeasurementData(
-            id: "m1",
-            timestamp: DateTime.now(),
-            real: const [10, 20, 30, 40],
-            imag: const [5, 10, 15, 20],
-            freq: const [100, 1000, 10000, 100000],
-          ),
-        ],
-      ),
-    ],
-  ),
-]);
+final ValueNotifier<List<DataSet>> globalDatasetsNotifier = ValueNotifier<List<DataSet>>([]);
+
+Future<void> loadCurrentSessionDatasets() async {
+  try {
+    List<DataSet> data = await DB.instance.getDataSetsFromCurrentSession();
+    globalDatasetsNotifier.value = data;
+  } catch (e) {
+    print("Erro ao carregar dados da sessão: $e");
+  }
+}
 
 class StatsScreen extends StatefulWidget {
-  final MeasurementData? currentMeasurementToSave;
+  final MeasurementPoint? currentMeasurementToSave;
 
   const StatsScreen({
     super.key,
@@ -56,8 +41,17 @@ class _StatsScreenState extends State<StatsScreen> {
   bool get _isSavingFlowMode => widget.currentMeasurementToSave != null;
 
   @override
+  void initState() {
+    super.initState();
+    _initialLoad();
+  }
+
+  Future<void> _initialLoad() async {
+    await loadCurrentSessionDatasets();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Escuta reativamente qualquer alteração na lista global de datasets
     return ValueListenableBuilder<List<DataSet>>(
       valueListenable: globalDatasetsNotifier,
       builder: (context, datasets, child) {
@@ -68,7 +62,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     icon: const Icon(Icons.close),
                     onPressed: () {
                       if (_isSavingFlowMode) {
-                        Navigator.pop(context); // Aborta e volta ao gráfico
+                        Navigator.pop(context);
                       } else {
                         setState(() => _selectedDatasetIds.clear());
                       }
@@ -85,11 +79,16 @@ class _StatsScreenState extends State<StatsScreen> {
             backgroundColor: _isSavingFlowMode ? Colors.blue[700] : null,
             foregroundColor: _isSavingFlowMode ? Colors.white : null,
             actions: [
-              if (_isSelectionMode)
+              if (_isSelectionMode) ... [
+                IconButton(
+                  icon: const Icon(Icons.ios_share, color: Colors.black), 
+                  onPressed: () => _exportSelectedDatasets(),
+                ),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.black),
-                  onPressed: () => _deleteSelectedDatasets(datasets),
+                  onPressed: () => _deleteSelectedDatasets(),
                 ),
+              ]
             ],
           ),
           body: Column(
@@ -158,7 +157,6 @@ class _StatsScreenState extends State<StatsScreen> {
                               fontWeight: isSelected || _isSavingFlowMode ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
-                          // Mostra em tempo real a quantidade de pontos atualizada
                           subtitle: Text("${dataset.points.length} pontos mapeados"),
                           trailing: _isSelectionMode
                               ? null
@@ -192,7 +190,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   backgroundColor: _isSavingFlowMode ? Colors.orange[700] : Colors.green,
                   foregroundColor: Colors.white,
                   shape: const CircleBorder(),
-                  onPressed: () => _createNewDatasetDialog(datasets),
+                  onPressed: _createNewDatasetDialog,
                   child: const Icon(Icons.add),
                 ),
         );
@@ -200,7 +198,7 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  void _openDatasetForSaving(DataSet dataset, MeasurementData measurement) {
+  void _openDatasetForSaving(DataSet dataset, MeasurementPoint measurement) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -232,7 +230,104 @@ class _StatsScreenState extends State<StatsScreen> {
     });
   }
 
-  void _deleteSelectedDatasets(List<DataSet> currentList) {
+  void _exportSelectedDatasets() async {
+    showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => const Center(child: CircularProgressIndicator()),
+  );
+
+  try {
+      final db = await DB.instance.getDatabase;
+      List<Map<String, dynamic>> exportData = [];
+
+      // 1. Busca detalhadamente cada dataset selecionado no banco de dados
+      for (String datasetId in _selectedDatasetIds) {
+        // Busca o Dataset
+        final List<Map<String, dynamic>> datasetMap = await db.query(
+          'dataset',
+          where: 'id = ?',
+          whereArgs: [datasetId],
+        );
+
+        if (datasetMap.isEmpty) continue;
+        Map<String, dynamic> datasetJson = Map<String, dynamic>.from(datasetMap.first);
+
+        // Busca os Pontos do Dataset
+        final List<Map<String, dynamic>> pointsMap = await db.query(
+          'measurement_point',
+          where: 'dataset_id = ?',
+          whereArgs: [datasetId],
+        );
+
+        List<Map<String, dynamic>> pointsJsonList = [];
+
+        for (var pointRow in pointsMap) {
+          Map<String, dynamic> pointJson = Map<String, dynamic>.from(pointRow);
+          String pointId = pointRow['id'];
+
+          // Busca as Medições do Ponto
+          final List<Map<String, dynamic>> measurementsMap = await db.query(
+            'measurement_data',
+            where: 'point_id = ?',
+            whereArgs: [pointId],
+          );
+
+          // Decodifica as strings JSON salvas no banco de volta para estruturas de lista nativas
+          List<Map<String, dynamic>> measurementsJsonList = measurementsMap.map((m) {
+            return {
+              'id': m['id'],
+              'real': jsonDecode(m['real'] ?? '[]'),
+              'imag': jsonDecode(m['imag'] ?? '[]'),
+              'freq': jsonDecode(m['freq'] ?? '[]'),
+            };
+          }).toList();
+
+          pointJson['measurements'] = measurementsJsonList;
+          pointsJsonList.add(pointJson);
+        }
+
+        datasetJson['points'] = pointsJsonList;
+        exportData.add(datasetJson);
+      }
+
+      // Fecha o modal de carregamento
+      if (mounted) Navigator.pop(context);
+
+      if (exportData.isEmpty) return;
+
+      // 2. Converte a estrutura final para uma String JSON formatada
+      String jsonString = const JsonEncoder.withIndent('  ').convert(exportData);
+
+      // 3. Grava em um arquivo temporário no dispositivo
+      final directory = await getTemporaryDirectory();
+      final String filePath = '${directory.path}/eprobe_export_${DateTime.now().millisecondsSinceEpoch}.json';
+      final File file = File(filePath);
+      await file.writeAsString(jsonString);
+
+      // 4. Dispara a folha de compartilhamento nativa do sistema operacional
+      final result = await Share.shareXFiles(
+        [XFile(filePath, mimeType: 'application/json')],
+        text: 'Exportação de Datasets do eProbe',
+      );
+
+      // Se o compartilhamento foi bem sucedido, limpa a seleção
+      if (result.status == ShareResultStatus.success) {
+        setState(() => _selectedDatasetIds.clear());
+      }
+
+    } catch (e) {
+      // Garante fechar o loading em caso de erro catastrófico
+      if (mounted) Navigator.pop(context);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erro ao exportar dados: $e"), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  // --- INTERAÇÃO COM BANCO: DELETAR DATASET(S) ---
+  void _deleteSelectedDatasets() {
     showDialog(
       context: context,
       builder: (context) {
@@ -246,14 +341,23 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-              onPressed: () {
-                // Modifica a lista de referência e notifica os ouvintes da árvore
-                final updatedList = List<DataSet>.from(currentList)
-                  ..removeWhere((d) => _selectedDatasetIds.contains(d.id));
-                globalDatasetsNotifier.value = updatedList;
+              onPressed: () async {
+                final db = await DB.instance.getDatabase;
                 
-                setState(() => _selectedDatasetIds.clear());
-                Navigator.pop(context);
+                // Transação segura para deletar em lote
+                await db.transaction((txn) async {
+                  for (String id in _selectedDatasetIds) {
+                    await txn.delete('dataset', where: 'id = ?', whereArgs: [id]);
+                  }
+                });
+
+                // Atualiza o notifier buscando os dados atualizados do banco
+                await loadCurrentSessionDatasets();
+                
+                if (mounted) {
+                  setState(() => _selectedDatasetIds.clear());
+                  Navigator.pop(context);
+                }
               },
               child: const Text("Excluir"),
             ),
@@ -263,7 +367,8 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  void _createNewDatasetDialog(List<DataSet> currentList) {
+  // --- INTERAÇÃO COM BANCO: CRIAR DATASET ---
+  void _createNewDatasetDialog() {
     final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController();
     String selectedImagePath = "assets/images/standard_fish.png";
@@ -312,18 +417,39 @@ class _StatsScreenState extends State<StatsScreen> {
               actions: [
                 TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (formKey.currentState!.validate()) {
-                      final newDataset = DataSet(
-                        id: "fish_${DateTime.now().millisecondsSinceEpoch}",
-                        name: nameController.text.trim(),
-                        imagePath: selectedImagePath,
-                        points: [],
-                      );
+                      final db = await DB.instance.getDatabase;
 
-                      // Atualiza o ValueNotifier global disparando a renderização dinâmica
-                      globalDatasetsNotifier.value = [...currentList, newDataset];
-                      Navigator.pop(context);
+                      // Garante que existe ao menos uma sessão no banco para vincular o Dataset
+                      List<Map<String, dynamic>> sessions = await db.query('measurement_session', limit: 1);
+                      String sessionId;
+                      
+                      if (sessions.isEmpty) {
+                        sessionId = "session_${DateTime.now().millisecondsSinceEpoch}";
+                        await db.insert('measurement_session', {
+                          'id': sessionId,
+                          'name': 'Sessão Padrão',
+                          'created_at': DateTime.now().toIso8601String(),
+                        });
+                      } else {
+                        sessionId = sessions.first['id'];
+                      }
+
+                      String newDatasetId = "fish_${DateTime.now().millisecondsSinceEpoch}";
+
+                      // Salva no SQLite
+                      await db.insert('dataset', {
+                        'id': newDatasetId,
+                        'name': nameController.text.trim(),
+                        'image_path': selectedImagePath,
+                        'session_id': sessionId,
+                      });
+
+                      // Sincroniza a UI reativamente do Banco de Dados
+                      await loadCurrentSessionDatasets();
+
+                      if (mounted) Navigator.pop(context);
                     }
                   },
                   child: const Text("Criar"),
@@ -353,7 +479,7 @@ class _StatsScreenState extends State<StatsScreen> {
 // ==========================================
 class _DatasetMapScreen extends StatefulWidget {
   final DataSet dataset;
-  final MeasurementData? pendingMeasurement;
+  final MeasurementPoint? pendingMeasurement;
 
   const _DatasetMapScreen({
     required this.dataset,
@@ -376,6 +502,7 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
     _showNamePointDialog(relativeX, relativeY);
   }
 
+  // --- INTERAÇÃO COM BANCO: SALVAR PONTO E MEDIÇÃO COMPLETA ---
   void _showNamePointDialog(double x, double y) {
     final nameController = TextEditingController();
 
@@ -392,36 +519,49 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final label = nameController.text.trim();
                 if (label.isEmpty) return;
 
-                final newPoint = MeasurementPoint(
-                  id: "point_${DateTime.now().millisecondsSinceEpoch}",
-                  label: label,
-                  x: x,
-                  y: y,
-                  measurements: [widget.pendingMeasurement!],
-                );
+                final db = await DB.instance.getDatabase;
+                final String pointId = "point_${DateTime.now().millisecondsSinceEpoch}";
+                final String measurementId = "meas_${DateTime.now().millisecondsSinceEpoch}";
 
-                // IMPORTANTE: Atualiza o objeto dentro do ValueNotifier global para refletir em todas as telas
-                final currentGlobalList = globalDatasetsNotifier.value;
-                for (var dataset in currentGlobalList) {
-                  if (dataset.id == widget.dataset.id) {
-                    dataset.points.add(newPoint);
-                    break;
-                  }
+                // Executa tudo em uma transação atômica segura
+                await db.transaction((txn) async {
+                  // 1. Insere o Ponto de medição no mapa
+                  await txn.insert('measurement_point', {
+                    'id': pointId,
+                    'label': label,
+                    'x': x,
+                    'y': y,
+                    'timestamp': DateTime.now().toIso8601String(),
+                    'dataset_id': widget.dataset.id,
+                    'metadata': null,
+                  });
+
+                  // 2. Insere os arrays brutos convertidos em JSON string
+                  await txn.insert('measurement_data', {
+                    'id': measurementId,
+                    'point_id': pointId,
+                    'real': jsonEncode(widget.pendingMeasurement!.real),
+                    'imag': jsonEncode(widget.pendingMeasurement!.imag),
+                    'freq': jsonEncode(widget.pendingMeasurement!.freq),
+                  });
+                });
+
+                // Atualiza a lista vinda do banco reativamente
+                await loadCurrentSessionDatasets();
+
+                if (mounted) {
+                  Navigator.pop(context); // Fecha Dialog
+                  Navigator.pop(context); // Fecha Tela Mapa
+                  Navigator.pop(context); // Retorna ao Gráfico de origem
+                  
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(content: Text("Medição acoplada com sucesso em '$label'!")),
+                  );
                 }
-                // Força o ValueNotifier a disparar uma notificação de mudança de estado interno
-                globalDatasetsNotifier.value = List<DataSet>.from(currentGlobalList);
-
-                Navigator.pop(context); // Fecha o Dialog de Nome
-                Navigator.pop(context); // Fecha a tela de Mapa atual
-                Navigator.pop(context); // Fecha a StatsScreen adaptativa voltando para a tela do Gráfico de Origem
-                
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(content: Text("Medição acoplada com sucesso em '$label'!")),
-                );
               },
               child: const Text("Salvar"),
             ),
@@ -431,7 +571,41 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
     );
   }
 
-  Future<void> _openMeasurement(BuildContext context, MeasurementPoint point, MeasurementData measurement) async {
+  // --- INTERAÇÃO COM BANCO: DELETAR PONTO (LONG PRESS) ---
+  void _deletePointDialog(DatasetPoint point) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Remover Ponto"),
+        content: Text("Deseja realmente excluir o ponto '${point.label}' e todas as suas medições?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              final db = await DB.instance.getDatabase;
+              
+              // O ON DELETE CASCADE na estrutura do banco cuidará da tabela measurement_data automaticamente
+              await db.delete('measurement_point', where: 'id = ?', whereArgs: [point.id]);
+
+              await loadCurrentSessionDatasets();
+              
+              if (mounted) {
+                Navigator.pop(context);
+                // Atualiza o estado da própria tela de mapa aberta para remover o marcador visualmente
+                setState(() {
+                  widget.dataset.points.removeWhere((p) => p.id == point.id);
+                });
+              }
+            },
+            child: const Text("Excluir"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openMeasurement(BuildContext context, DatasetPoint point, MeasurementPoint measurement) async {
     final iz = IzController();
     iz.real = List.from(measurement.real);
     iz.imag = List.from(measurement.imag);
@@ -524,8 +698,8 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
                                 _openMeasurement(context, point, point.measurements.first);
                               },
                               onLongPress: () {
-                                // TODO: Remoção de pontos
-                                print("Removendo Pontos...");        
+                                if (_isSavingMode) return;
+                                _deletePointDialog(point); // Implementado a remoção
                               },
                               child: Container(
                                 width: markerSize,
@@ -533,7 +707,6 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
                                 color: Colors.transparent,
                                 child: Center(
                                   child: Container(
-                    
                                     width: 24,
                                     height: 24,
                                     decoration: BoxDecoration(
