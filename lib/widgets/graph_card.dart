@@ -10,7 +10,7 @@ class ChartData {
 
 class GraphCard extends StatelessWidget {
 
-  final String title;
+  //final String title;
   final String unit;
   final String axis;
   final List<ChartData> data;
@@ -20,7 +20,7 @@ class GraphCard extends StatelessWidget {
 
   const GraphCard({
     super.key,
-    required this.title,
+    // required this.title,
     required this.unit,
     required this.data,
     required this.color,
@@ -64,12 +64,12 @@ class GraphCard extends StatelessWidget {
                 top: 8,
               ),
 
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              // child: Text(
+              //   title,
+              //   style: const TextStyle(
+              //     fontWeight: FontWeight.bold,
+              //   ),
+              // ),
             ),
 
             Expanded(
@@ -93,6 +93,7 @@ class GraphCard extends StatelessWidget {
 
                     return LogarithmicAxis(
                       minimum: 10,
+                      maximum: 1000000,
                       title: AxisTitle(
                         text: xLabel,
                       ),
@@ -100,6 +101,7 @@ class GraphCard extends StatelessWidget {
                   }
 
                   return NumericAxis(
+                    maximum: 1000000,
                     title: AxisTitle(
                         text: xLabel,
                       ),

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:eprobe/controllers/language_handler.dart';
 import 'package:eprobe/database/db.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -71,10 +72,10 @@ class _StatsScreenState extends State<StatsScreen> {
                 : null,
             title: Text(
               _isSavingFlowMode
-                  ? "Selecione o Dataset Alvo"
+                  ? LanguageHandler().translate('select_target_dataset') // "Selecione o Dataset Alvo"
                   : _isSelectionMode
-                      ? "${_selectedDatasetIds.length} selecionados"
-                      : "Medições registradas",
+                      ? '${_selectedDatasetIds.length} ${LanguageHandler().translate('selected').toLowerCase()}'
+                      : LanguageHandler().translate('recorded_measurements'),
             ),
             backgroundColor: _isSavingFlowMode ? Colors.blue[700] : null,
             foregroundColor: _isSavingFlowMode ? Colors.white : null,
@@ -98,13 +99,14 @@ class _StatsScreenState extends State<StatsScreen> {
                   color: Colors.orange[100],
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
-                  child: const Row(
+                  child: Row(
                     children: [
                       Icon(Icons.info_outline, color: Colors.orange, size: 20),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          "Clique no dataset dinâmico abaixo para abrir o mapa correspondente e salvar.",
+                          // "Clique no dataset dinâmico abaixo para abrir o mapa correspondente e salvar.",
+                          LanguageHandler().translate('touch_dataset'),
                           style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87, fontSize: 13),
                         ),
                       ),
@@ -157,7 +159,7 @@ class _StatsScreenState extends State<StatsScreen> {
                               fontWeight: isSelected || _isSavingFlowMode ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
-                          subtitle: Text("${dataset.points.length} pontos mapeados"),
+                          subtitle: Text("${dataset.points.length} ${LanguageHandler().translate('mapped_points')}"),
                           trailing: _isSelectionMode
                               ? null
                               : Icon(
@@ -305,23 +307,20 @@ class _StatsScreenState extends State<StatsScreen> {
       final File file = File(filePath);
       await file.writeAsString(jsonString);
 
-      // 4. Dispara a folha de compartilhamento nativa do sistema operacional
       final result = await Share.shareXFiles(
         [XFile(filePath, mimeType: 'application/json')],
         text: 'Exportação de Datasets do eProbe',
       );
 
-      // Se o compartilhamento foi bem sucedido, limpa a seleção
       if (result.status == ShareResultStatus.success) {
         setState(() => _selectedDatasetIds.clear());
       }
 
     } catch (e) {
-      // Garante fechar o loading em caso de erro catastrófico
       if (mounted) Navigator.pop(context);
       
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erro ao exportar dados: $e"), backgroundColor: Colors.red),
+        SnackBar(content: Text("${LanguageHandler().translate('export_failed')}: $e"), backgroundColor: Colors.red),
       );
     }
   }
@@ -332,12 +331,12 @@ class _StatsScreenState extends State<StatsScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Excluir Datasets"),
-          content: Text("Tem certeza que deseja excluir ${_selectedDatasetIds.length} dataset(s)?"),
+          title: Text(LanguageHandler().translate('delete_datasets')),// Text("Excluir Datasets"),
+          content: Text("${LanguageHandler().translate('confirm_delete')} ${_selectedDatasetIds.length} dataset(s)?"),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Cancelar"),
+              child: Text(LanguageHandler().translate('cancel')),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
@@ -359,7 +358,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   Navigator.pop(context);
                 }
               },
-              child: const Text("Excluir"),
+              child: Text(LanguageHandler().translate('delete')),
             ),
           ],
         );
@@ -387,7 +386,7 @@ class _StatsScreenState extends State<StatsScreen> {
             }
 
             return AlertDialog(
-              title: const Text("Novo Dataset"),
+              title: Text(LanguageHandler().translate('new_dataset')),
               content: Form(
                 key: formKey,
                 child: SingleChildScrollView(
@@ -396,7 +395,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     children: [
                       TextFormField(
                         controller: nameController,
-                        decoration: const InputDecoration(labelText: "Nome do Dataset"),
+                        decoration: InputDecoration(labelText: LanguageHandler().translate('dataset_name')),
                         validator: (v) => (v == null || v.trim().isEmpty) ? "Insira um nome." : null,
                       ),
                       const SizedBox(height: 16),
@@ -408,14 +407,14 @@ class _StatsScreenState extends State<StatsScreen> {
                       OutlinedButton.icon(
                         onPressed: pickImage,
                         icon: const Icon(Icons.photo_library),
-                        label: const Text("Selecionar Foto"),
+                        label: Text(LanguageHandler().translate('select_picture')),
                       ),
                     ],
                   ),
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+                TextButton(onPressed: () => Navigator.pop(context), child: Text(LanguageHandler().translate('cancel'))),
                 ElevatedButton(
                   onPressed: () async {
                     if (formKey.currentState!.validate()) {
@@ -452,7 +451,7 @@ class _StatsScreenState extends State<StatsScreen> {
                       if (mounted) Navigator.pop(context);
                     }
                   },
-                  child: const Text("Criar"),
+                  child: Text(LanguageHandler().translate('create')),
                 ),
               ],
             );
@@ -511,13 +510,12 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Nomear Ponto de Medição"),
+          title: Text(LanguageHandler().translate('name_measurement_point')),
           content: TextField(
             controller: nameController,
-            decoration: const InputDecoration(labelText: "Ex: Lombo, Cabeça, Filé"),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(LanguageHandler().translate('cancel'))),
             ElevatedButton(
               onPressed: () async {
                 final label = nameController.text.trim();
@@ -550,7 +548,6 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
                   });
                 });
 
-                // Atualiza a lista vinda do banco reativamente
                 await loadCurrentSessionDatasets();
 
                 if (mounted) {
@@ -559,11 +556,11 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
                   Navigator.pop(context); // Retorna ao Gráfico de origem
                   
                   ScaffoldMessenger.of(this.context).showSnackBar(
-                    SnackBar(content: Text("Medição acoplada com sucesso em '$label'!")),
+                    SnackBar(content: Text("${LanguageHandler().translate('measurement_save_successfull')} '$label'!")),
                   );
                 }
               },
-              child: const Text("Salvar"),
+              child: Text(LanguageHandler().translate('save')),
             ),
           ],
         );
@@ -576,10 +573,11 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Remover Ponto"),
-        content: Text("Deseja realmente excluir o ponto '${point.label}' e todas as suas medições?"),
+        title: Text(LanguageHandler().translate('remove_point')),
+        // content: Text("Deseja realmente excluir o ponto '${point.label}' e todas as suas medições?"),
+        content: Text("${LanguageHandler().translate('confirm_delete')} '${point.label}' ${LanguageHandler().translate('and_measurements')}"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(LanguageHandler().translate('cancel'))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
@@ -598,7 +596,7 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
                 });
               }
             },
-            child: const Text("Excluir"),
+            child: Text(LanguageHandler().translate('delete')),
           ),
         ],
       ),
@@ -633,7 +631,8 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isSavingMode ? "Toque na imagem para salvar" : widget.dataset.name),
+        // title: Text(_isSavingMode ? "Toque na imagem para salvar" : widget.dataset.name),
+        title: Text(_isSavingMode ? LanguageHandler().translate('tap_image_save') : widget.dataset.name),
         backgroundColor: _isSavingMode ? Colors.blue[700] : null,
         foregroundColor: _isSavingMode ? Colors.white : null,
       ),
@@ -644,8 +643,9 @@ class _DatasetMapScreenState extends State<_DatasetMapScreen> {
               color: Colors.orange[100],
               width: double.infinity,
               padding: const EdgeInsets.all(8),
-              child: const Text(
-                "Modo de Gravação: Toque em um local livre para vincular o gráfico.",
+              child: Text(
+                // "Modo de Gravação: Toque em um local livre para vincular a medição.",
+                LanguageHandler().translate("recording_mode_save_measurement"),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
               ),

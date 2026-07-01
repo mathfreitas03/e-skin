@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:eprobe/controllers/language_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:eprobe/controllers/ble_controller.dart';
 import 'package:eprobe/models/connection_status.dart';
@@ -92,16 +93,20 @@ class _NavbarState extends State<Navbar> {
   String _buttonLabel() {
     switch (status) {
       case BleConnectionStatus.connected:
-        return 'Conectado';
+        // return 'Conectado';
+        return LanguageHandler().translate('connected');
 
       case BleConnectionStatus.scanning:
-        return 'Procurando...';
+        // return 'Procurando...';
+        return LanguageHandler().translate('searching');
 
       case BleConnectionStatus.connecting:
-        return 'Conectando...';
+        // return 'Conectando...';
+        return LanguageHandler().translate('connecting');
 
       case BleConnectionStatus.disconnected:
-        return 'Conectar';
+        // return 'Conectar';
+        return LanguageHandler().translate('connect');
     }
   }
 

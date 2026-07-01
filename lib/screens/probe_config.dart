@@ -1,3 +1,4 @@
+import 'package:eprobe/controllers/language_handler.dart';
 import 'package:flutter/material.dart';
 
 class IzConfigCard extends StatefulWidget {
@@ -16,8 +17,8 @@ class _IzConfigCardState extends State<IzConfigCard> {
   @override
   Widget build(BuildContext context) {
     if (widget.config.isEmpty) {
-      return const Center(
-        child: Text("Nenhuma configuração disponível"),
+      return Center(
+        child: Text(LanguageHandler().translate('no_settings_available'))//Text("Nenhuma configuração disponível"),
       );
     }
 
@@ -33,10 +34,11 @@ class _IzConfigCardState extends State<IzConfigCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
                 children: [
                   Text(
-                    "Configuração da Sonda",
+                    // "Configuração da Sonda",
+                    LanguageHandler().translate('probe_settings'),
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,

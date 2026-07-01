@@ -1,4 +1,6 @@
 
+import 'package:eprobe/controllers/app_configs.dart';
+import 'package:eprobe/controllers/language_handler.dart';
 import 'package:eprobe/screens/graph_view_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -166,8 +168,8 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Referência capturada"),
+      SnackBar(
+        content: Text(LanguageHandler().translate('captured_reference'),)
       ),
     );
   }
@@ -180,8 +182,8 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Compensação removida"),
+      SnackBar(
+        content: Text(LanguageHandler().translate('compensation_removed')),
       ),
     );
   }
@@ -216,17 +218,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final debugCorrectedImag = _applyTare(_staticIz.imag, tareImag);
 
     if(widget.connStatus != BleConnectionStatus.connected) {
-      return const Center(child: Text("Nenhum dispositivo conectado."));
+        return Center(child: Text(LanguageHandler().translate("no_device_found")));
     }
 
     return Padding(
       padding: const EdgeInsets.all(12),
       child: ListView(
         children: [
-          
-          /// ====================================================
-          /// SEÇÃO DO GRÁFICO (Sempre visível e fixa no topo)
-          /// ====================================================
           // SizedBox(
           //   height: 520, // Ajustado para dar espaço suficiente aos dois gráficos internos do GraphViewScreen
           //   width: double.infinity,
@@ -264,7 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
               iz: iz,
               realOverride: correctedReal,
               imagOverride: correctedImag,
-              title: applyTare ? "Medição Compensada" : "Nova Medição",
+              title: applyTare ? LanguageHandler().translate('compensated_measurement') : LanguageHandler().translate('new_measurement'),
               xAxis: "logarithmic",
               historyMode: false,
             ),
@@ -279,8 +277,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Card(
             clipBehavior: Clip.antiAlias,
             child: ExpansionTile(
-              title: const Text(
-                "Ver Configurações da Sonda",
+              title: Text(
+                LanguageHandler().translate('view_probe_settings'),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                 ),
@@ -316,8 +314,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       children: [
 
-                        const Text(
-                          "Temperatura",
+                        Text(
+                          // "Temperatura",
+                          LanguageHandler().translate('temperature'),
                           style: TextStyle(
                             fontWeight:
                                 FontWeight.bold,
@@ -325,7 +324,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
 
                         Text(
-                          "${widget.temperature.toStringAsFixed(1)} °C",
+                          // "${widget.temperature.toStringAsFixed(1)} °C",
+                          AppConfigs().formatTemperature(widget.temperature)
                         ),
                       ],
                     ),
@@ -343,8 +343,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       children: [
 
-                        const Text(
-                          "Pressão",
+                        Text(
+                          // "Pressão",
+                          LanguageHandler().translate('pressure'),
                           style: TextStyle(
                             fontWeight:
                                 FontWeight.bold,
@@ -373,8 +374,9 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
-                  const Text(
-                    "Enviar comando",
+                  Text(
+                    // "Enviar comando",
+                    LanguageHandler().translate('send_command')
                   ),
 
                   const SizedBox(height: 8),
@@ -412,8 +414,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             }
                           },
 
-                          child: const Text(
-                            "Comando Único",
+                          child: Text(
+                            // "Comando Único",
+                            LanguageHandler().translate('single_command'),
                           ),
                         ),
                       ],
@@ -446,8 +449,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
 
-                  const Text(
-                    "Compensação",
+                  Text(
+                    // "Compensação",
+                    LanguageHandler().translate('compensation'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -463,8 +467,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           onPressed: (_staticIz.real.isEmpty && iz.real.isEmpty)
                               ? null
                               : _captureTare,
-                          child: const Text(
-                            "Tara",
+                          child: Text(
+                            // "Tara",
+                            LanguageHandler().translate('tare')
                           ),
                         ),
                       ),
@@ -474,7 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           onPressed: tareReal == null
                               ? null
                               : _clearTare,
-                          child: const Text("Limpar"),
+                          child: Text(LanguageHandler().translate('clean'))// const Text("Limpar"),
                         ),
                       ),
                     ],
@@ -493,14 +498,16 @@ class _HomeScreenState extends State<HomeScreen> {
                               applyTare = v;
                             });
                           },
-                    title: const Text(
-                      "Aplicar compensação",
+                    title: Text(
+                      // "Aplicar compensação",
+                      LanguageHandler().translate('apply_compensation')
                     ),
                   ),
 
                   if (tareReal != null)
-                    const Text(
-                      "Referência activa",
+                    Text(
+                      // "Referência activa",
+                      LanguageHandler().translate('reference_activated'),
                       style: TextStyle(
                         color: Colors.green,
                         fontWeight: FontWeight.bold,

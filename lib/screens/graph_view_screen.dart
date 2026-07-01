@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:archive/archive.dart';
+import 'package:eprobe/controllers/language_handler.dart';
 import 'package:eprobe/models/measurement_point.dart';
 import 'package:eprobe/screens/stats_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -56,9 +57,7 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
     xAxis = widget.xAxis;
   }
 
-  /// =========================
-  /// CAPTURA WIDGET -> PNG
-  /// =========================
+  // Conversão de Widget para PNG
 
   Future<Uint8List> _captureWidget(
     GlobalKey key,
@@ -142,7 +141,7 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erro ao exportar: $e")),
+        SnackBar(content: Text("$LanguageHandler().translate('export_failed'): $e")),
       );
     }
   }
@@ -167,12 +166,12 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Escala do eixo X"),
+          title: Text(LanguageHandler().translate('axis_scale')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               RadioListTile<String>(
-                title: const Text("Logarítmica"),
+                title: Text(LanguageHandler().translate('logarithmic')),
                 value: 'logarithmic',
                 groupValue: xAxis,
                 onChanged: (value) {
@@ -183,7 +182,7 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
                 },
               ),
               RadioListTile<String>(
-                title: const Text("Numérica"),
+                title: Text(LanguageHandler().translate('linear')),
                 value: 'numeric',
                 groupValue: xAxis,
                 onChanged: (value) {
@@ -212,8 +211,8 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
     final List<ChartData> imagData = imagSpots.map((e) => ChartData(e.x, e.y)).toList();
 
     if (widget.iz.freq.isEmpty) {
-      return const Center(
-        child: Text("Nenhum dado encontrado"),
+      return Center(
+        child: Text(LanguageHandler().translate('no_data_found')) //Text("Nenhum dado encontrado"),
       );
     }
 
@@ -263,8 +262,8 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
 
       // Feedback visual rápido
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Preparando dados. Selecione o dataset a seguir..."),
+        SnackBar(
+          content: Text(LanguageHandler().translate('preparing_data')), // Text("Preparando dados. Selecione o dataset a seguir..."),
           duration: Duration(milliseconds: 600),
         ),
       );
@@ -298,13 +297,12 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
                   child: RepaintBoundary(
                     key: realGraphKey,
                     child: GraphCard(
-                      title: "Real(Z)",
                       unit: "Ω",
                       data: realData,
                       color: Colors.red,
                       axis: xAxis,
-                      xLabel: "Frequência (Hz)",
-                      yLabel: "Resistência (Ω)",
+                      xLabel: "${LanguageHandler().translate('real_part')} vs ${LanguageHandler().translate('frequency')} (Hz)",
+                      yLabel: "Real (Ω)",
                     ),
                   ),
                 ),
@@ -314,13 +312,12 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
                   child: RepaintBoundary(
                     key: imagGraphKey,
                     child: GraphCard(
-                      title: "Imag(Z)",
                       unit: "Ω",
                       data: imagData,
                       color: Colors.green,
                       axis: xAxis,
-                      xLabel: "Frequência (Hz)",
-                      yLabel: "Capacitância (pF)",
+                      xLabel: "${LanguageHandler().translate('imaginary_part')} vs ${LanguageHandler().translate('frequency')} (Hz)",
+                      yLabel: "Imag (Ω)",
                     ),
                   ),
                 ),
