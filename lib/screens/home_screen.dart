@@ -50,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
       streaming = true;
 
       paused = false;
-      widget.onDatasetChanged("IKF");
+      await widget.onDatasetChanged("IKF");
 
       while (streaming) {
 
@@ -299,9 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
           
           const SizedBox(height: 10),
 
-          /// =========================
-          /// TEMPERATURA / PRESSÃO
-          /// =========================
+          // Temperatura e Pressão
 
           Row(
             children: [
@@ -419,6 +417,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             LanguageHandler().translate('single_command'),
                           ),
                         ),
+                        const SizedBox(width: 8),
+        
+                        ElevatedButton.icon(
+                          onPressed: startStream,
+                          icon: const Icon(Icons.sensors), 
+                          label: const Text("Streaming"),   
+                        ),
+
                       ],
 
                       if (streaming) ...[
@@ -506,7 +512,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   if (tareReal != null)
                     Text(
-                      // "Referência activa",
+                      // "Referência ativa",
                       LanguageHandler().translate('reference_activated'),
                       style: TextStyle(
                         color: Colors.green,
