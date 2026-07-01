@@ -1,3 +1,5 @@
+import 'package:eprobe/controllers/app_configs.dart';
+import 'package:eprobe/controllers/language_handler.dart';
 import 'package:flutter/material.dart';
 import 'controllers/ble_controller.dart';
 import 'package:eprobe/permissions.dart';
@@ -23,6 +25,14 @@ void main() async {
     await enableBluetooth();
   }
 
+  // Configurações escolhidas pelo usuário. Semelhante a lógica dos cookies na web
+
+  final configs = AppConfigs();
+  await configs.init();
+  
+  final languageHandler = LanguageHandler();
+  await languageHandler.init();
+  
   runApp(const MyApp());
 }
 
@@ -78,32 +88,22 @@ class _MainLayoutState extends State<MainLayout> {
       });
     });
 
-    // ===== BLE DATA (PROCESSAMENTO DA RESPOSTA DA SONDA) =====
     _bleSubscription = ble.messageStream.listen((block) {
       print("Tamanho do block: ${block.length}");
       final lines = block.split("\n");
       print("Quantidade de linhas: ${lines.length}");
 
-      // Alimenta o controlador com a string recebida via Bluetooth
       iz.process(block);
 
       if (!mounted) return;
-
-      // Atualiza a interface de forma acumulativa
       setState(() {
-        // Se a resposta trouxe dados de temperatura, atualiza. Se não, preserva o último valor.
         _temperature = iz.temperatura ?? _temperature;
-
         if (iz.forcaTareada != null) {
           _pressure = iz.forcaTareada! * forceScaleNewtonPerCount;
         } else{
           _pressure = _pressure * forceScaleNewtonPerCount;
         }
-
         _pressure = double.parse(_pressure.toStringAsFixed(5));
-        
-        // O objeto 'iz' mantém internamente os vetores do gráfico intactos
-        // enquanto o comando INF é processado, evitando que a tela se apague.
       });
     });
   }
@@ -147,7 +147,6 @@ class _MainLayoutState extends State<MainLayout> {
     setState(() {
       connStatus = BleConnectionStatus.connecting;
     });
-
     await ble.connect();
   }
 

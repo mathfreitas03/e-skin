@@ -8,8 +8,8 @@ import 'package:path/path.dart';
 class DB {
   DB._();
 
-  static final DB instance = DB._();   // Instancia a ser utilizada no singleton
-  static Database? _database;   // Instancia do SQFlite
+  static final DB instance = DB._();   
+  static Database? _database;   
 
   Future<Database> get getDatabase async {
   if (_database != null) return _database!;
@@ -85,14 +85,12 @@ Future<List<DataSet>> getDataSetsFromCurrentSession() async {
     limit: 1,
   );
 
-  // Se ainda não houver nenhuma sessão criada no banco, retorna uma lista vazia
   if (latestSession.isEmpty) {
     return [];
   }
 
   String currentSessionId = latestSession.first['id'];
 
-  // 2. Busca APENAS os datasets que pertencem a essa sessão atual
   final List<Map<String, dynamic>> datasetsMap = await db.query(
     'dataset',
     where: 'session_id = ?',
@@ -104,7 +102,6 @@ Future<List<DataSet>> getDataSetsFromCurrentSession() async {
   for (var datasetRow in datasetsMap) {
     String datasetId = datasetRow['id'];
 
-    // 3. Busca os pontos vinculados a este dataset
     final List<Map<String, dynamic>> pointsMap = await db.query(
       'measurement_point',
       where: 'dataset_id = ?',
@@ -116,7 +113,6 @@ Future<List<DataSet>> getDataSetsFromCurrentSession() async {
     for (var pointRow in pointsMap) {
       String pointId = pointRow['id'];
 
-      // 4. Busca as medições vinculadas a este ponto
       final List<Map<String, dynamic>> measurementsMap = await db.query(
         'measurement_data',
         where: 'point_id = ?',
