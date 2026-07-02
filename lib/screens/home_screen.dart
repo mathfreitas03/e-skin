@@ -50,16 +50,18 @@ class _HomeScreenState extends State<HomeScreen> {
       streaming = true;
 
       paused = false;
-      // await widget.onDatasetChanged("IKF");
-      // await Future.delayed(const Duration(seconds: 2),);
-      // await widget.onDatasetChanged("INF");
-      // await Future.delayed(const Duration(seconds: 2),);
+      await widget.onDatasetChanged("IKF");
+      Future.delayed(const Duration(seconds: 2));
+      await widget.onDatasetChanged("INF");
+      Future.delayed(const Duration(seconds: 2));
 
       while (streaming) {
 
         if (!paused) {
-
-          final value = _controller.text;
+          // Enquanto a sonda ainda está limitada, deixar isso estático.
+          
+          // final value = _controller.text;
+          final value = "IZ1000000F";
 
           if (value.isNotEmpty) {
 

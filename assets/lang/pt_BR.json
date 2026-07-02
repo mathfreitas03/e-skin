@@ -17,6 +17,7 @@
   "dataset_name": "Nome do Dataset",
   "delete": "Excluir",
   "delete_datasets": "Excluir Conjuntos de Dados",
+  "enable_magnitude": "Habilitar linha de magnitude",
   "export_failed": "Falha na Exportação",
   "home_title": "Nova Medição",
   "language": "Idioma",
@@ -30,6 +31,7 @@
   "no_data_found": "Nenhum dado encontrado",
   "no_device_found": "Nenhum dispositivo encontrado",
   "no_settings_available": "Nenhuma configuração disponível",
+  "original_data_legend": "Dados Originais",
   "preferences": "Preferências",
   "preparing_data": "Preparando dados. Selecione o conjunto de dados a seguir...",
   "pressure": "Pressão",
@@ -54,5 +56,6 @@
   "view_probe_settings": "Ver Configurações da Sonda",
   "imaginary_part": "Parte Imaginária",
   "real_part": "Parte Real",
-  "frequency": "Frequência"
+  "frequency": "Frequência",
+  "z_total": "Impedância Total"
 }
