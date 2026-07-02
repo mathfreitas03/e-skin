@@ -17,6 +17,7 @@
   "dataset_name": "Dataset Name",
   "delete": "Delete",
   "delete_datasets": "Delete Datasets",
+  "enable_magnitude": "Enable Magnitude Line",
   "export_failed": "Export Failed",
   "home_title": "New Measurement",
   "language": "Language",
@@ -30,6 +31,7 @@
   "no_data_found": "No Data Found",
   "no_device_found": "No device found",
   "no_settings_available": "No Settings Available",
+  "original_data_legend": "Original Data",
   "preferences": "Preferences",
   "preparing_data": "Preparing data. Select the following dataset...",
   "pressure": "Pressure",
@@ -54,5 +56,6 @@
   "view_probe_settings": "View Probe Settings",
   "imaginary_part": "Imaginary Part",
   "real_part": "Real Part",
-  "frequency": "Frequency"
+  "frequency": "Frequency",
+  "z_total": "Total Impedance"
 }

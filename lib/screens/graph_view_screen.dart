@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:archive/archive.dart';
 import 'package:eprobe/controllers/language_handler.dart';
+import 'package:eprobe/models/chard_data.dart';
 import 'package:eprobe/models/measurement_point.dart';
 import 'package:eprobe/screens/stats_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -12,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-
+import '../bioimpedance_utils/impedance_magnitude.dart';
 import '../controllers/iz_controller.dart';
 import '../widgets/graph_card.dart';
 
@@ -43,11 +44,9 @@ class GraphViewScreen extends StatefulWidget {
 
 class _GraphViewScreenState extends State<GraphViewScreen> {
   late String xAxis;
+  late bool showMagnitude;
 
-  /// =========================
   /// KEYS DOS GRÁFICOS
-  /// =========================
-
   final GlobalKey realGraphKey = GlobalKey();
   final GlobalKey imagGraphKey = GlobalKey();
       
@@ -55,6 +54,7 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
   void initState() {
     super.initState();
     xAxis = widget.xAxis;
+    showMagnitude = true;
   }
 
   // Conversão de Widget para PNG
@@ -162,42 +162,64 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
   }
 
   void _showAxisDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(LanguageHandler().translate('axis_scale')),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RadioListTile<String>(
-                title: Text(LanguageHandler().translate('logarithmic')),
-                value: 'logarithmic',
-                groupValue: xAxis,
-                onChanged: (value) {
-                  setState(() {
-                    xAxis = value!;
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-              RadioListTile<String>(
-                title: Text(LanguageHandler().translate('linear')),
-                value: 'numeric',
-                groupValue: xAxis,
-                onChanged: (value) {
-                  setState(() {
-                    xAxis = value!;
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  showDialog(
+    context: context,
+    builder: (context) {
+      // O StatefulBuilder permite atualizar componentes dentro do Dialog em tempo de execução
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(LanguageHandler().translate('axis_scale')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<String>(
+                  title: Text(LanguageHandler().translate('logarithmic')),
+                  value: 'logarithmic',
+                  groupValue: xAxis,
+                  onChanged: (value) {
+                    setState(() {
+                      xAxis = value!;
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+                RadioListTile<String>(
+                  title: Text(LanguageHandler().translate('linear')),
+                  value: 'numeric',
+                  groupValue: xAxis,
+                  onChanged: (value) {
+                    setState(() {
+                      xAxis = value!;
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+                const Divider(), 
+                Row(
+                  children: [
+                    Switch(
+                      value: showMagnitude,
+                      onChanged: (_) {
+                        setDialogState(() {
+                          showMagnitude = !showMagnitude;
+                        });
+                        // Atualiza o estado da tela principal em segundo plano
+                        setState(() {});
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Text(LanguageHandler().translate('enable_magnitude')),
+                  ],
+                )
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -209,6 +231,7 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
 
     final List<ChartData> realData = realSpots.map((e) => ChartData(e.x, e.y)).toList();
     final List<ChartData> imagData = imagSpots.map((e) => ChartData(e.x, e.y)).toList();
+    final List<ChartData> magnitudeData = calcularMagnitude(realData, imagData);
 
     if (widget.iz.freq.isEmpty) {
       return Center(
@@ -303,6 +326,8 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
                       axis: xAxis,
                       xLabel: "${LanguageHandler().translate('real_part')} vs ${LanguageHandler().translate('frequency')} (Hz)",
                       yLabel: "Real (Ω)",
+                      showImpedanceMagnitude: showMagnitude,
+                      magnitudeData: magnitudeData,
                     ),
                   ),
                 ),
@@ -318,6 +343,8 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
                       axis: xAxis,
                       xLabel: "${LanguageHandler().translate('imaginary_part')} vs ${LanguageHandler().translate('frequency')} (Hz)",
                       yLabel: "Imag (Ω)",
+                      showImpedanceMagnitude: showMagnitude,
+                      magnitudeData: magnitudeData,
                     ),
                   ),
                 ),
