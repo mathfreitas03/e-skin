@@ -1,3 +1,4 @@
+import 'package:eprobe/models/found_ble_device.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -7,7 +8,9 @@ class BleController {
   final FlutterReactiveBle ble = FlutterReactiveBle();
   StreamSubscription<ConnectionStateUpdate>? _connectionSub;
   StreamSubscription<List<int>>? _notifySub;
-  DiscoveredDevice? esp32;
+  
+  // Guarda o ID do dispositivo atualmente conectado ou em processo de conexão
+  String? _connectedDeviceId;
 
   final _connectionController = StreamController<BleConnectionStatus>.broadcast();
   Stream<BleConnectionStatus> get connectionStream => _connectionController.stream;
@@ -17,18 +20,42 @@ class BleController {
   final _messageController = StreamController<String>.broadcast();
   Stream<String> get messageStream => _messageController.stream;
 
-  // Constantes idênticas ao código Python
   final serviceControl = Uuid.parse("6ebf5001-8765-4f67-8f4f-95f56ac3a1a0");
-  
-  // Alinhado com o Python: TX (...002) envia dados para o app (Notify)
   final charNotify = Uuid.parse("6ebf5002-8765-4f67-8f4f-95f56ac3a1a0"); 
-  // Alinhado com o Python: RX (...003) recebe dados do app (Write)
-  final charWrite  = Uuid.parse("6ebf5003-8765-4f67-8f4f-95f56ac3a1a0"); 
-
-  // Tamanho do Chunk idêntico ao Python
+  final charWrite   = Uuid.parse("6ebf5003-8765-4f67-8f4f-95f56ac3a1a0"); 
   static const int bleWriteChunkSize = 180;
 
   // ===== SCAN =====
+  Future<List<FoundBleDevice>> scanForDevices() async {
+    final status = await ble.statusStream.firstWhere(
+      (s) => s == BleStatus.ready,
+      orElse: () => BleStatus.unknown,
+    );
+
+    if (status != BleStatus.ready) {
+      // print("[DEBUG SCAN] Bluetooth não está pronto: $status");
+      return [];
+    }
+
+    // print("[DEBUG SCAN] Bluetooth pronto, iniciando scan...");
+    
+    final Map<String, FoundBleDevice> foundDevices = {};
+
+    final subscription = ble.scanForDevices(withServices: []).listen((device) {
+      if (device.name.isNotEmpty) {
+        FoundBleDevice newDevice = FoundBleDevice(device);
+        newDevice.isValid = device.name.contains("Bioimpedance device");
+        foundDevices[device.id] = newDevice;
+      }
+    });
+
+    await Future.delayed(const Duration(seconds: 5));
+    await subscription.cancel();    
+    return foundDevices.values.toList();
+  }
+
+  // Mantido caso reversão seja necessária. No momento, não é mais utilizado
+
   Future<bool> scanForEsp() async {
     final status = await ble.statusStream.firstWhere(
       (s) => s == BleStatus.ready,
@@ -41,48 +68,61 @@ class BleController {
     }
 
     print("Bluetooth pronto, iniciando scan...");
+    bool found = false;
 
     final subscription = ble.scanForDevices(withServices: []).listen((device) {
-      // Endereço padrão definido no Python
       if (device.id == "DC:06:75:F6:57:5E") {
-        esp32 = device;
+        found = true;
       }
     });
 
     await Future.delayed(const Duration(seconds: 5));
     await subscription.cancel();
 
-    if (esp32 == null) {
-      print("Não foi possível encontrar o dispositivo");
-    }
-
-    return esp32 != null;
+    return found;
   }
 
-  // ===== CONNECT =====
-  Future<bool> connect() async {
-    if (esp32 == null) return false;
+// Variável de controle para evitar cliques duplos/chamadas concorrentes
+  bool _isConnecting = false;
+
+  Future<bool> connect(FoundBleDevice device) async {
+    if (_isConnecting) {
+      print("Já existe uma tentativa de conexão em andamento...");
+      return false;
+    }
+
+    if(!device.isValid) {
+      return false;
+    }
 
     try {
+      _isConnecting = true;
+      _connectedDeviceId = device.discoveredDevice.id;
+
+      // 2. Garante o cancelamento de qualquer inscrição/conexão antiga ativa
+      await _connectionSub?.cancel();
+      _connectionSub = null;
+
       _connectionSub = ble
           .connectToDevice(
-            id: esp32!.id,
+            id: device.discoveredDevice.id,
             connectionTimeout: const Duration(seconds: 10), 
           )
           .listen((update) async {
         switch (update.connectionState) {
           case DeviceConnectionState.connecting:
-            print("Conectando...");
+            print("Conectando a ${device.discoveredDevice.name}...");
             _connectionController.add(BleConnectionStatus.connecting);
             break;
 
           case DeviceConnectionState.connected:
-            print("Conectado!");
+            print("Conectado com sucesso!");
+            _isConnecting = false; // Libera o estado
             _connectionController.add(BleConnectionStatus.connected);
             _rxBuffer = ""; 
 
-            negotiateMTU(ble, esp32!.id);
-            await _startNotificationListener();
+            negotiateMTU(ble, device.discoveredDevice.id);
+            await _startNotificationListener(device.discoveredDevice.id); 
             break;
 
           case DeviceConnectionState.disconnecting:
@@ -91,14 +131,20 @@ class BleController {
 
           case DeviceConnectionState.disconnected:
             print("Desconectado!");
+            _isConnecting = false; // Libera o estado
             _cleanupOnDisconnect();
             break;
         }
+      }, onError: (Object error) {
+        print("Erro no stream de conexão: $error");
+        _isConnecting = false;
+        _cleanupOnDisconnect();
       });
 
       return true;
     } catch (e) {
-      print("Erro conexão: $e");
+      print("Erro inicial de conexão: $e");
+      _isConnecting = false;
       _cleanupOnDisconnect();
       return false;
     }
@@ -114,18 +160,18 @@ class BleController {
   }
 
   // ===== NOTIFICATION LISTENER =====
-  Future<void> _startNotificationListener() async {
+  // CORREÇÃO: Recebe dinamicamente o ID correto do dispositivo conectado
+  Future<void> _startNotificationListener(String deviceId) async {
     await _notifySub?.cancel();
 
     final characteristic = QualifiedCharacteristic(
-      deviceId: esp32!.id,
+      deviceId: deviceId, // CORRIGIDO: Usa o deviceId dinâmico e remove o "esp32!"
       serviceId: serviceControl,
       characteristicId: charNotify,
     );
 
     _notifySub = ble.subscribeToCharacteristic(characteristic).listen(
       (data) {
-        // utf8.decode trata os bytes de texto vindos do Python perfeitamente
         final chunk = utf8.decode(data, allowMalformed: true);
 
         if (chunk.isEmpty) return;
@@ -136,7 +182,6 @@ class BleController {
           final index = _rxBuffer.indexOf("@");
           final completed = _rxBuffer.substring(0, index);
           
-          // Avança o buffer ignorando o "@" atual
           _rxBuffer = _rxBuffer.substring(index + 1);
 
           final block = "$completed@";
@@ -151,10 +196,11 @@ class BleController {
 
   // ===== ENVIO DE MENSAGENS =====
   Future<void> sendMessage(String text) async {
-    if (esp32 == null || _connectionSub == null) return;
+    // CORREÇÃO: Valida contra a nova propriedade de ID conectado
+    if (_connectedDeviceId == null || _connectionSub == null) return;
 
     final characteristic = QualifiedCharacteristic(
-      deviceId: esp32!.id,
+      deviceId: _connectedDeviceId!, // CORRIGIDO: Usa o ID dinâmico
       serviceId: serviceControl,
       characteristicId: charWrite, 
     );
@@ -167,19 +213,18 @@ class BleController {
         i + bleWriteChunkSize > payload.length ? payload.length : i + bleWriteChunkSize,
       );
 
-      // Alterado para WITHOUT response para bater com o Python (response=False)
       await ble.writeCharacteristicWithoutResponse(
         characteristic,
         value: chunk,
       );
 
-      // Delay de 5ms idêntico ao Python para evitar estouro de buffer no ESP32
       await Future.delayed(const Duration(milliseconds: 5));
     }
   }
 
   void _cleanupOnDisconnect() {
     _rxBuffer = "";
+    _connectedDeviceId = null; // Reseta o ID salvo
     _notifySub?.cancel();
     _notifySub = null;
     _connectionController.add(BleConnectionStatus.disconnected);

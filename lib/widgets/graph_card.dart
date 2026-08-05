@@ -8,10 +8,12 @@ class GraphCard extends StatelessWidget {
   final String axis;
   final bool showImpedanceMagnitude;
   final List<ChartData> data;
-  final List<ChartData>? magnitudeData; // Alterado para aceitar nulo caso showImpedanceMagnitude seja falso
+  final List<ChartData>? magnitudeData;
+  final List<ChartData>? nyquistData; // Recebe os pontos (Real, -Imag)
   final Color color;
   final String xLabel;
   final String yLabel;
+  final bool isNyquist;
 
   const GraphCard({
     super.key,
@@ -22,12 +24,16 @@ class GraphCard extends StatelessWidget {
     required this.xLabel,
     required this.yLabel,
     required this.showImpedanceMagnitude,
-    this.magnitudeData, // Incluído no construtor
+    this.magnitudeData,
+    this.nyquistData,
+    this.isNyquist = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (data.isEmpty) {
+    final activeData = isNyquist ? (nyquistData ?? []) : data;
+
+    if (activeData.isEmpty) {
       return const Center(
         child: Text(
           "Aguardando dados IZ...",
@@ -57,56 +63,48 @@ class GraphCard extends StatelessWidget {
             Expanded(
               child: SfCartesianChart(
                 zoomPanBehavior: zoomPanBehavior,
-
                 legend: Legend(
-                  isVisible: showImpedanceMagnitude,
-                  position: LegendPosition.top, // Exibe uma pequena legenda no topo do gráfico
+                  isVisible: showImpedanceMagnitude && !isNyquist,
+                  position: LegendPosition.top,
                 ),
-
-
                 primaryXAxis: (() {
-                  if (axis == 'logarithmic') {
+                  if (!isNyquist && axis == 'logarithmic') {
                     return LogarithmicAxis(
                       minimum: 10,
-                      // maximum: 1000000,
                       title: AxisTitle(text: xLabel),
                     );
                   }
                   return NumericAxis(
-                    // maximum: 1000000,
                     title: AxisTitle(text: xLabel),
                   );
                 })(),
                 primaryYAxis: NumericAxis(
                   title: AxisTitle(text: yLabel),
                 ),
-
-                /// =========================
-                /// SÉRIES (LINHAS)
-                /// =========================
                 series: <CartesianSeries>[
-                  // Linha Principal Original
                   LineSeries<ChartData, double>(
-                    name: LanguageHandler().translate('original_data_legend'), // Nome que aparecerá na legenda
+                    name: isNyquist 
+                        ? "Nyquist (R vs -Xc)" 
+                        : LanguageHandler().translate('original_data_legend'),
                     animationDuration: 500,
-                    dataSource: data,
+                    dataSource: activeData,
                     xValueMapper: (ChartData d, _) => d.x,
                     yValueMapper: (ChartData d, _) => d.y,
                     color: color,
-                    width: 1,
-                    markerSettings: const MarkerSettings(isVisible: false),
+                    width: 1.5,
+                    // markerSettings: MarkerSettings(
+                    //   isVisible: isNyquist, // Exibe os pontos discretos de medição no arco
+                    // ),
                   ),
-                  
-                  // Linha Adicional Condicional de Magnitude
-                  if (showImpedanceMagnitude && magnitudeData != null)
+                  if (showImpedanceMagnitude && magnitudeData != null && !isNyquist)
                     LineSeries<ChartData, double>(
-                      name: LanguageHandler().translate('z_total'), // Nome na legenda para a segunda reta
+                      name: LanguageHandler().translate('z_total'),
                       animationDuration: 500,
                       dataSource: magnitudeData!,
                       xValueMapper: (ChartData d, _) => d.x,
                       yValueMapper: (ChartData d, _) => d.y,
-                      color: const Color(0xFF0000FF), // Cor diferente para distinguir a nova reta
-                      width: 1, // Levemente mais grossa para destaque
+                      color: const Color(0xFF0000FF),
+                      width: 1.5,
                       markerSettings: const MarkerSettings(isVisible: false),
                     ),
                 ],

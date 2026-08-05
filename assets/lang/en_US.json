@@ -1,6 +1,7 @@
 {
   "and_measurements": "and all its measurements?",
   "apply_compensation": "Apply Compensation",
+  "available_devices": "Available Devices",
   "axis_scale": "X-axis scale",
   "cancel": "Cancel",
   "captured_reference": "Captured reference",
@@ -20,6 +21,7 @@
   "enable_magnitude": "Enable Magnitude Line",
   "export_failed": "Export Failed",
   "home_title": "New Measurement",
+  "incompatible_device": "Incompatible device",
   "language": "Language",
   "linear": "Linear",
   "logarithmic": "Logarithmic",
@@ -35,9 +37,11 @@
   "preferences": "Preferences",
   "preparing_data": "Preparing data. Select the following dataset...",
   "pressure": "Pressure",
+  "probe_sensor_error": "ALERT: Probe temperature sensor failure",
   "probe_settings": "Probe Settings",
   "recorded_measurements": "Recorded measurements",
   "recording_mode_save_measurement": "Recording Mode: Tap an empty spot to associate the measurement.",
+  "records": "Records",
   "reference_activated": "Reference Activated",
   "remove_point": "Remove point",
   "save": "Save",
@@ -45,8 +49,11 @@
   "select_picture": "Select picture",
   "select_target_dataset": "Select the target dataset",
   "selected": "Selected",
+  "selected_language" : "English",
   "send_command": "Send Command",
+  "settings": "Settings",
   "single_command": "Single Command",
+  "searching_for_devices": "Searching for Bluetooth devices...",
   "tap_image_save": "Tap the image to save.",
   "tare": "Tare",
   "temperature": "Temperature",
@@ -57,5 +64,6 @@
   "imaginary_part": "Imaginary Part",
   "real_part": "Real Part",
   "frequency": "Frequency",
-  "z_total": "Total Impedance"
+  "z_total": "Total Impedance",
+  "waiting_for_data": "Waiting for data..."
 }

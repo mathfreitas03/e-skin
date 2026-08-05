@@ -1,9 +1,8 @@
 
 import 'package:eprobe/controllers/app_configs.dart';
 import 'package:eprobe/controllers/language_handler.dart';
-import 'package:eprobe/screens/graph_view_screen.dart';
+import 'package:eprobe/views/graph_view_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import '../controllers/iz_controller.dart';
 import '../models/connection_status.dart';
 import 'probe_config.dart';
@@ -34,7 +33,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late TextEditingController _controller;
-  
+  bool wasConnected = false;
   // Future<String>? _loadLogFuture;
   final IzController _staticIz = IzController();
 
@@ -46,40 +45,46 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> startStream() async {
 
       if (streaming) return;
-
+      if (widget.connStatus != BleConnectionStatus.connected) return;
+      
       streaming = true;
 
       paused = false;
+      
       await widget.onDatasetChanged("IKF");
-      Future.delayed(const Duration(seconds: 2));
-      await widget.onDatasetChanged("INF");
-      Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 2));
 
       while (streaming) {
 
         if (!paused) {
           // Enquanto a sonda ainda está limitada, deixar isso estático.
-          
+          // print("--- Iniciando ciclo de leitura ---");
+          await Future.delayed(const Duration(milliseconds: 800));
+          await widget.onDatasetChanged("INF");
+          await Future.delayed(const Duration(milliseconds: 800));
+          await widget.onDatasetChanged("IZ1000000F");
+        await Future.delayed(
+          const Duration(seconds: 4),
+        );
+
           // final value = _controller.text;
-          final value = "IZ1000000F";
+          // final value = "IZ1000000F";
+          // if (value.isNotEmpty) {
 
-          if (value.isNotEmpty) {
+          //   String valueUpperCase =
+          //       value.toUpperCase();
 
-            String valueUpperCase =
-                value.toUpperCase();
+          //   widget.onDatasetChanged(
+          //     valueUpperCase,
+          //   );
 
-            widget.onDatasetChanged(
-              valueUpperCase,
-            );
+          //   // print("Comando enviado: $valueUpperCase");
 
-            // print("Comando enviado: $valueUpperCase");
-
-          } 
+          // } 
+        } else {
+          await Future.delayed(const Duration(milliseconds: 200));
         }
 
-        await Future.delayed(
-          const Duration(seconds: 5),
-        );
       }
     }
 
@@ -219,17 +224,21 @@ class _HomeScreenState extends State<HomeScreen> {
     final correctedImag = _applyTare(iz.imag, tareImag);
 
     // Para o ambiente de Debug/Log estático funcionar com o Switch de compensação
-    final debugCorrectedReal = _applyTare(_staticIz.real, tareReal);
-    final debugCorrectedImag = _applyTare(_staticIz.imag, tareImag);
+    // final debugCorrectedReal = _applyTare(_staticIz.real, tareReal);
+    // final debugCorrectedImag = _applyTare(_staticIz.imag, tareImag);
 
-    if(widget.connStatus != BleConnectionStatus.connected) {
+    if(widget.connStatus != BleConnectionStatus.connected && !wasConnected) {
         return Center(child: Text(LanguageHandler().translate("no_device_found")));
+    } else {
+      wasConnected = true;
     }
 
     return Padding(
+      
       padding: const EdgeInsets.all(12),
       child: ListView(
         children: [
+          
           // SizedBox(
           //   height: 520, // Ajustado para dar espaço suficiente aos dois gráficos internos do GraphViewScreen
           //   width: double.infinity,
@@ -258,7 +267,24 @@ class _HomeScreenState extends State<HomeScreen> {
           //     },
           //   ),
           // ),
+          ValueListenableBuilder<bool>(
+            valueListenable: iz.sensorErrorNotifier,
+            builder: (context, temErro, child) {
+              // Verifica a condição aqui, antes de renderizar a interface de erro
+              if (!temErro) return const SizedBox.shrink(); 
 
+              return Container(
+                padding: const EdgeInsets.all(8),
+                color: Colors.red.shade100,
+                child: Center(
+                  child: Text(
+                  LanguageHandler().translate('probe_sensor_error'), 
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  ),
+                )
+              );
+            },
+          ),
           // MODO PRODUÇÃO EM TEMPO REAL: 
           SizedBox(
             height: 520,

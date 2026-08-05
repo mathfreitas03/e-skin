@@ -1,27 +1,26 @@
-import 'dart:convert';
+// ignore_for_file: avoid_print
+
+import 'package:flutter/material.dart';
 
 class IzController {
-  static const bool debugMode = true;
+  static const bool debugMode = false;
 
   List<double> real = [];
   List<double> imag = [];
   List<double> freq = [];
   
-  // Mudado para aceitar nulo quando o dado não fizer parte do bloco atual
   double? temperatura;
   double? forca;
   double? forcaTareada;
   
   Map<String, String> config = {};
-
+  final ValueNotifier<bool> sensorErrorNotifier = ValueNotifier<bool>(false);
+  
   void process(String raw) {
     if (debugMode) {
-      print("======= [DEBUG] STRING BRUTA RECEBIDA =======");
-      print(raw);
-      print("=============================================");
+      print("======= [DEBUG] STRING BRUTA RECEBIDA =======\n$raw\n=============================================");
     }
 
-    // 1. EXTRAÇÃO E LIMPEZA DAS LINHAS DO BLOCO
     final block = raw.contains("@") ? raw.split("@").first : raw;
     final lines = block.split(RegExp(r'\r?\n'))
                        .map((l) => l.trim())
@@ -30,15 +29,12 @@ class IzController {
 
     if (lines.isEmpty) return;
 
-    // =========================================================================
-    // CASO A: É UM BLOCO DE CONFIGURAÇÃO DO FIRMWARE
-    // =========================================================================
     final configMatch = RegExp(
       r'------- Saved Configuration -------([\s\S]*?)----------------------------------',
     ).firstMatch(raw);
 
     if (configMatch != null) {
-      config = {}; // Limpa apenas a configuração antiga
+      config = {}; // Limpa a configuração antiga
       final configBlock = configMatch.group(1)!;
       final configLines = configBlock.split(RegExp(r'\r?\n'));
 
@@ -58,12 +54,29 @@ class IzController {
       return; // Configuração processada, finaliza aqui.
     }
 
-    // =========================================================================
-    // CASO B: DADOS SIMPLES DE TELEMETRIA (Ex: Comando INF)
-    // =========================================================================
-    if (lines.first.toLowerCase() == 'ok' && lines.length == 2) {
-      final dataLine = lines[1];
-      if (dataLine.contains("&")) {
+    // Comando "INF": temperatura   &força_tareada    &força
+
+    if (lines.first.toLowerCase() == 'ok' && lines.length < 10) {
+      bool temErroSensor = lines.any((l) => l.toUpperCase().contains("ERROR SENSOR"));
+      
+      if (temErroSensor) {
+        if (debugMode) {
+          print("[AVISO] Sonda reportou: ERROR SENSOR. Tratando dados alternativos...");
+        }
+        sensorErrorNotifier.value = true;
+      } else {
+        if(debugMode) {
+          print("[AVISO] Erro no sensor de temperatura foi resolvido");
+        }
+        sensorErrorNotifier.value = false;
+      }
+
+      final dataLine = lines.firstWhere(
+        (l) => l.contains("&"), 
+        orElse: () => "",
+      );
+
+      if (dataLine.isNotEmpty) {
         final parts = dataLine.split("&").map((e) => e.trim()).toList();
         if (parts.length >= 3) {
           temperatura = double.tryParse(parts[0]); 
@@ -73,15 +86,13 @@ class IzController {
           if (debugMode) {
             print("DADOS SIMPLES -> Temp: $temperatura | Força: $forca | Força Tareada: $forcaTareada");
           }
-          return; // Aborta aqui! Assim NÃO tocamos nas listas do gráfico (real, imag, freq).
+          return; // Aborta com sucesso, sem quebrar os gráficos da curva Z
         }
       }
     }
 
-    // =========================================================================
-    // CASO C: MATRIZ DE VARREDURA DO GRÁFICO (Dados IZ)
-    // =========================================================================
-    
+    // Caso padrão: recepção de dados IZ
+        
     // Como confirmamos que este bloco é do gráfico, limpamos as listas antigas dele
     List<double> localReal = [];
     List<double> localImag = [];
@@ -116,7 +127,7 @@ class IzController {
       }
     }
 
-    if (localFreq.isEmpty) {
+    if (localFreq.isEmpty && debugMode) {
       print("ERRO: Nenhum dado de varredura IZ válido foi encontrado.");
       return;
     }

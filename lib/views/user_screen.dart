@@ -100,7 +100,7 @@ class _UserScreenState extends State<UserScreen> {
               leading: const Icon(Icons.language),
               // title: Text(t("language") != "language" ? t("language") : "Idioma"),
               title: Text(LanguageHandler().translate("language")),
-              subtitle: Text(_selectedLanguage == "pt_BR" ? "Português" : "English"),
+              subtitle: Text(LanguageHandler().translate('selected_language')),
               trailing: DropdownButton<String>(
                 value: _selectedLanguage,
                 underline: const SizedBox(), // Remove a linha padrão do Dropdown

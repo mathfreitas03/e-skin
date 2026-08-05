@@ -3,11 +3,12 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:eprobe/views/bioinsights_card.dart';
 import 'package:archive/archive.dart';
 import 'package:eprobe/controllers/language_handler.dart';
 import 'package:eprobe/models/chard_data.dart';
 import 'package:eprobe/models/measurement_point.dart';
-import 'package:eprobe/screens/stats_screen.dart';
+import 'package:eprobe/views/stats_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -58,7 +59,6 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
   }
 
   // Conversão de Widget para PNG
-
   Future<Uint8List> _captureWidget(
     GlobalKey key,
   ) async {
@@ -127,7 +127,6 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
   /// =========================
   /// EXPORTAÇÃO COMPLETA SHARE
   /// =========================
-
   Future<void> _exportCompletePackage() async {
     final file = await _generateGraphPackage();
     if (file == null) return;
@@ -141,7 +140,7 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("$LanguageHandler().translate('export_failed'): $e")),
+        SnackBar(content: Text("${LanguageHandler().translate('export_failed')}: $e")),
       );
     }
   }
@@ -161,65 +160,65 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
     );
   }
 
+  
+
   void _showAxisDialog() {
-  showDialog(
-    context: context,
-    builder: (context) {
-      // O StatefulBuilder permite atualizar componentes dentro do Dialog em tempo de execução
-      return StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: Text(LanguageHandler().translate('axis_scale')),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                RadioListTile<String>(
-                  title: Text(LanguageHandler().translate('logarithmic')),
-                  value: 'logarithmic',
-                  groupValue: xAxis,
-                  onChanged: (value) {
-                    setState(() {
-                      xAxis = value!;
-                    });
-                    Navigator.pop(context);
-                  },
-                ),
-                RadioListTile<String>(
-                  title: Text(LanguageHandler().translate('linear')),
-                  value: 'numeric',
-                  groupValue: xAxis,
-                  onChanged: (value) {
-                    setState(() {
-                      xAxis = value!;
-                    });
-                    Navigator.pop(context);
-                  },
-                ),
-                const Divider(), 
-                Row(
-                  children: [
-                    Switch(
-                      value: showMagnitude,
-                      onChanged: (_) {
-                        setDialogState(() {
-                          showMagnitude = !showMagnitude;
-                        });
-                        // Atualiza o estado da tela principal em segundo plano
-                        setState(() {});
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    Text(LanguageHandler().translate('enable_magnitude')),
-                  ],
-                )
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(LanguageHandler().translate('axis_scale')),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RadioListTile<String>(
+                    title: Text(LanguageHandler().translate('logarithmic')),
+                    value: 'logarithmic',
+                    groupValue: xAxis,
+                    onChanged: (value) {
+                      setState(() {
+                        xAxis = value!;
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
+                  RadioListTile<String>(
+                    title: Text(LanguageHandler().translate('linear')),
+                    value: 'numeric',
+                    groupValue: xAxis,
+                    onChanged: (value) {
+                      setState(() {
+                        xAxis = value!;
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
+                  const Divider(), 
+                  Row(
+                    children: [
+                      Switch(
+                        value: showMagnitude,
+                        onChanged: (_) {
+                          setDialogState(() {
+                            showMagnitude = !showMagnitude;
+                          });
+                          setState(() {});
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      Text(LanguageHandler().translate('enable_magnitude')),
+                    ],
+                  )
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -233,9 +232,17 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
     final List<ChartData> imagData = imagSpots.map((e) => ChartData(e.x, e.y)).toList();
     final List<ChartData> magnitudeData = calcularMagnitude(realData, imagData);
 
+    final List<ChartData> nyquistSpots = List.generate(
+    realData.length < imagData.length ? realData.length : imagData.length,
+    (i) => ChartData(
+      realData[i].y,            // Eixo X: Real (Resistência R)
+      imagData[i].y * -1      // Eixo Y: -Imag (Reatância Xc positiva)
+    ),
+    );
+
     if (widget.iz.freq.isEmpty) {
       return Center(
-        child: Text(LanguageHandler().translate('no_data_found')) //Text("Nenhum dado encontrado"),
+        child: Text(LanguageHandler().translate('no_data_found')),
       );
     }
 
@@ -268,49 +275,45 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
                   ),
                   
                   if (!widget.historyMode) ...[
-  IconButton(
-    onPressed: () {
-      // 1. Captura os valores atuais considerando possíveis overrides/taras
-      final currentReal = widget.realOverride ?? widget.iz.real;
-      final currentImag = widget.imagOverride ?? widget.iz.imag;
-      final currentFreq = widget.iz.freq;
+                    IconButton(
+                      onPressed: () {
+                        final currentReal = widget.realOverride ?? widget.iz.real;
+                        final currentImag = widget.imagOverride ?? widget.iz.imag;
+                        final currentFreq = widget.iz.freq;
 
-      // 2. Instancia o objeto de dados estruturados com um ID único baseado em timestamp
-      final measurementToSave = MeasurementPoint(
-        id: "m_captured_${DateTime.now().millisecondsSinceEpoch}",
-        real: List<double>.from(currentReal),
-        imag: List<double>.from(currentImag),
-        freq: List<double>.from(currentFreq),
-      );
+                        final measurementToSave = MeasurementPoint(
+                          id: "m_captured_${DateTime.now().millisecondsSinceEpoch}",
+                          real: List<double>.from(currentReal),
+                          imag: List<double>.from(currentImag),
+                          freq: List<double>.from(currentFreq),
+                        );
 
-      // Feedback visual rápido
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(LanguageHandler().translate('preparing_data')), // Text("Preparando dados. Selecione o dataset a seguir..."),
-          duration: Duration(milliseconds: 600),
-        ),
-      );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(LanguageHandler().translate('preparing_data')),
+                            duration: const Duration(milliseconds: 600),
+                          ),
+                        );
 
-      // 3. Navega para a StatsScreen passando a medição que acabamos de capturar do gráfico
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => StatsScreen(
-            currentMeasurementToSave: measurementToSave,
-          ),
-        ),
-      );
-    },
-    icon: const Icon(Icons.save),
-  ),
-]
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => StatsScreen(
+                              currentMeasurementToSave: measurementToSave,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.save),
+                    ),
+                  ]
                 ],
               ),
             ],
           ),
 
           /// =========================
-          /// GRÁFICOS
+          /// GRÁFICOS E INSIGHTS
           /// =========================
           Expanded(
             child: ListView(
@@ -343,10 +346,34 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
                       axis: xAxis,
                       xLabel: "${LanguageHandler().translate('imaginary_part')} vs ${LanguageHandler().translate('frequency')} (Hz)",
                       yLabel: "Imag (Ω)",
-                      showImpedanceMagnitude: showMagnitude,
+                      showImpedanceMagnitude: false,
                       magnitudeData: magnitudeData,
                     ),
                   ),
+                ),
+              // TODO: Ajeitar gráfico de Nyquist
+              //   SizedBox(
+              //   height: 220,
+              //   child: GraphCard(
+              //     unit: "Ω",
+              //     data: const [], // Vazio pois usa nyquistData
+              //     nyquistData: nyquistSpots,
+              //     isNyquist: true,
+              //     color: Colors.purple,
+              //     axis: "numeric",
+              //     xLabel: "Real - R (Ω)",
+              //     yLabel: "-Imag - Xc (Ω)",
+              //     showImpedanceMagnitude: false,
+              //   ),
+              // ),
+                const SizedBox(height: 12),
+                
+                /// =========================
+                /// CARD DE INSIGHTS DA BIA
+                /// =========================
+                BioinsightsCard(
+                  realData: realData,
+                  imaginaryData: imagData,
                 ),
               ],
             ),
