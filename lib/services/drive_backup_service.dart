@@ -216,7 +216,7 @@ class DriveBackupService {
     final difference = localMeta.lastModified.difference(cloudMeta.lastModified).abs();
 
     if (difference.inMinutes < 1) {
-      onStatusMessage("Seus dados já estão sincronizados!");
+      onStatusMessage("Data is already synchronized.");
       return;
     }
 
@@ -226,11 +226,11 @@ class DriveBackupService {
     final SyncDecision? decision = await _showConflictDialog(context, localMeta, cloudMeta);
 
     if (decision == SyncDecision.useLocal) {
-      onStatusMessage("Atualizando nuvem com dados locais...");
+      onStatusMessage("Backup updated");
       final ok = await uploadBackup(googleUser);
       onStatusMessage(ok ? "Cloud updated" : "Cloud update failed.");
     } else if (decision == SyncDecision.useCloud) {
-      onStatusMessage("Restoring remote date");
+      onStatusMessage("Restoring remote data");
       final ok = await restoreBackup(googleUser);
       onStatusMessage(ok ? "Database restored" : "Failed to restore date.");
     } else {
