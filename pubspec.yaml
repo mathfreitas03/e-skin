@@ -46,7 +46,13 @@ dependencies:
   sqflite: ^2.0.0+3
   shared_preferences: ^2.5.5
   archive: ^4.0.9
-
+  google_sign_in: ^6.2.1
+  googleapis: ^13.2.0
+  extension_google_sign_in_as_googleapis_auth: ^2.0.1
+  flutter_riverpod: ^2.5.1
+  path: ^1.9.1
+  http: ^1.6.0
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter

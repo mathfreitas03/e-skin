@@ -1,8 +1,10 @@
 
 import 'package:eprobe/controllers/app_configs.dart';
 import 'package:eprobe/controllers/language_handler.dart';
+import 'package:eprobe/services/drive_backup_service.dart';
 import 'package:eprobe/views/graph_view_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../controllers/iz_controller.dart';
 import '../models/connection_status.dart';
 import 'probe_config.dart';
@@ -31,7 +33,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late TextEditingController _controller;
   bool wasConnected = false;
   // Future<String>? _loadLogFuture;
@@ -58,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
         if (!paused) {
           // Enquanto a sonda ainda está limitada, deixar isso estático.
-          // print("--- Iniciando ciclo de leitura ---");
           await Future.delayed(const Duration(milliseconds: 800));
           await widget.onDatasetChanged("INF");
           await Future.delayed(const Duration(milliseconds: 800));
@@ -129,12 +130,47 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool applyTare = false;
 
+Future<void> _checkAutoSync() async {
+    final configs = AppConfigs();
+    if (configs.isDriveBackupEnabled) {
+      final googleSignIn = GoogleSignIn();
+      final account = await googleSignIn.signInSilently();
+      
+      if (account != null && mounted) {
+        // Executa a sincronização completa (com modal caso existam conflitos)
+        await DriveBackupService.performSyncWithDecision(
+          context,
+          account,
+          onStatusMessage: (msg) {
+            // Mensagem silenciosa ou Log
+            debugPrint("Sync Startup: $msg");
+          },
+        );
+      }
+    }
+  }
+
+  Future<void> _backupIfNeeded() async {
+      if (AppConfigs().isDriveBackupEnabled) {
+        final account = await GoogleSignIn().signInSilently();
+        if (account != null) {
+          await DriveBackupService.uploadBackup(account);
+        }
+      }
+    }
+    
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     _controller = TextEditingController(
       text: widget.selectedDataset,
     );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAutoSync();
+    });  
 
     // Inicializa a leitura do log de debug estático uma única vez na memória
     // _loadLogFuture = rootBundle.loadString("assets/logs/log1.txt").then((data) {
@@ -170,6 +206,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _controller.dispose();
     super.dispose();
   }
+
+    @override
+    void didChangeAppLifecycleState(AppLifecycleState state) {
+      // Quando o app é minimizado (paused/inactive)
+      if (state == AppLifecycleState.paused) {
+        _backupIfNeeded();
+      }
+    }
 
   void _captureTare() {
     setState(() {

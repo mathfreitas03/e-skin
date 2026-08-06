@@ -1,736 +1,546 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:eprobe/controllers/language_handler.dart';
-import 'package:eprobe/database/db.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eprobe/controllers/language_handler.dart';
+import 'package:eprobe/models/dataset.dart';
+import 'package:eprobe/models/measurement_point.dart';
+import 'package:eprobe/repositories/dataset_repository.dart';
+import 'package:eprobe/services/export_service.dart';
+import 'package:eprobe/services/import_service.dart'; // Importação do Serviço de Importação
 import 'package:image_picker/image_picker.dart';
-import '../controllers/iz_controller.dart';
-import '../models/dataset.dart';
-import '../models/dataset_point.dart';
-import '../models/measurement_point.dart';
-import 'graph_view_screen.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
+import 'dataset_map_screen.dart';
 
-final ValueNotifier<List<DataSet>> globalDatasetsNotifier = ValueNotifier<List<DataSet>>([]);
+class DatasetNotifier extends StateNotifier<List<DataSet>> {
+  final DatasetRepository _repository;
+  final ImportService _importService = ImportService();
 
-Future<void> loadCurrentSessionDatasets() async {
-  try {
-    List<DataSet> data = await DB.instance.getDataSetsFromCurrentSession();
-    globalDatasetsNotifier.value = data;
-  } catch (e) {
-    print("Erro ao carregar dados da sessão: $e");
+  DatasetNotifier(this._repository) : super([]) {
+    loadCurrentSessionDatasets();
+  }
+
+  Future<void> loadCurrentSessionDatasets() async {
+    try {
+      final datasets = await _repository.getDatasetsFromCurrentSession();
+      state = datasets;
+    } catch (e) {
+      debugPrint("Erro ao carregar dados da sessão: $e");
+    }
+  }
+
+  Future<void> deleteDatasets(Set<String> ids) async {
+    await _repository.deleteDatasets(ids);
+    await loadCurrentSessionDatasets();
+  }
+
+  Future<void> createDataset({required String name, required String imagePath}) async {
+    await _repository.createDataset(name: name, imagePath: imagePath);
+    await loadCurrentSessionDatasets();
+  }
+
+  /// Método para realizar a importação do arquivo ZIP e recarregar a lista local
+  Future<bool> importDataset() async {
+    final bool success = await _importService.importDatasetsFromFile();
+    if (success) {
+      await loadCurrentSessionDatasets();
+    }
+    return success;
   }
 }
 
-class StatsScreen extends StatefulWidget {
+final datasetProvider = StateNotifierProvider<DatasetNotifier, List<DataSet>>((ref) {
+  return DatasetNotifier(DatasetRepository());
+});
+
+// ============================================================================
+// STATS SCREEN WIDGET
+// ============================================================================
+
+class StatsScreen extends ConsumerStatefulWidget {
   final MeasurementPoint? currentMeasurementToSave;
 
-  const StatsScreen({
-    super.key,
-    this.currentMeasurementToSave,
-  });
+  const StatsScreen({super.key, this.currentMeasurementToSave});
 
   @override
-  State<StatsScreen> createState() => _StatsScreenState();
+  ConsumerState<StatsScreen> createState() => _StatsScreenState();
 }
 
-class _StatsScreenState extends State<StatsScreen> {
+class _StatsScreenState extends ConsumerState<StatsScreen> {
+  final ExportService _exportService = ExportService();
   final Set<String> _selectedDatasetIds = <String>{};
 
   bool get _isSelectionMode => _selectedDatasetIds.isNotEmpty;
   bool get _isSavingFlowMode => widget.currentMeasurementToSave != null;
 
-  @override
-  void initState() {
-    super.initState();
-    _initialLoad();
-  }
-
-  Future<void> _initialLoad() async {
-    await loadCurrentSessionDatasets();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<DataSet>>(
-      valueListenable: globalDatasetsNotifier,
-      builder: (context, datasets, child) {
-        return Scaffold(
-          appBar: AppBar(
-            leading: _isSelectionMode || _isSavingFlowMode
-                ? IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      if (_isSavingFlowMode) {
-                        Navigator.pop(context);
-                      } else {
-                        setState(() => _selectedDatasetIds.clear());
-                      }
-                    },
-                  )
-                : null,
-            title: Text(
-              _isSavingFlowMode
-                  ? LanguageHandler().translate('select_target_dataset') // "Selecione o Dataset Alvo"
-                  : _isSelectionMode
-                      ? '${_selectedDatasetIds.length} ${LanguageHandler().translate('selected').toLowerCase()}'
-                      : LanguageHandler().translate('recorded_measurements'),
-            ),
-            backgroundColor: _isSavingFlowMode ? Colors.blue[700] : null,
-            foregroundColor: _isSavingFlowMode ? Colors.white : null,
-            actions: [
-              if (_isSelectionMode) ... [
-                IconButton(
-                  icon: const Icon(Icons.ios_share, color: Colors.black), 
-                  onPressed: () => _exportSelectedDatasets(),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.black),
-                  onPressed: () => _deleteSelectedDatasets(),
-                ),
-              ]
-            ],
-          ),
-          body: Column(
-            children: [
-              if (_isSavingFlowMode)
-                Container(
-                  color: Colors.orange[100],
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          // "Clique no dataset dinâmico abaixo para abrir o mapa correspondente e salvar.",
-                          LanguageHandler().translate('touch_dataset'),
-                          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87, fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: ListView.builder(
-                    itemCount: datasets.length,
-                    itemBuilder: (context, index) {
-                      final dataset = datasets[index];
-                      final isSelected = _selectedDatasetIds.contains(dataset.id);
-
-                      return Card(
-                        elevation: isSelected ? 6 : 3,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        shape: isSelected
-                            ? RoundedRectangleBorder(
-                                side: const BorderSide(color: Colors.green, width: 2),
-                                borderRadius: BorderRadius.circular(12),
-                              )
-                            : _isSavingFlowMode
-                                ? RoundedRectangleBorder(
-                                    side: BorderSide(color: Colors.orange[300]!, width: 1.5),
-                                    borderRadius: BorderRadius.circular(12),
-                                  )
-                                : null,
-                        color: isSelected ? Colors.green[50] : null,
-                        child: ListTile(
-                          leading: isSelected
-                              ? Container(
-                                  width: 60,
-                                  alignment: Alignment.center,
-                                  child: const Icon(Icons.check_circle, color: Colors.green),
-                                )
-                              : ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: _buildDatasetImage(
-                                    dataset.imagePath,
-                                    width: 80,
-                                    height: 60,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                          title: Text(
-                            dataset.name,
-                            style: TextStyle(
-                              fontWeight: isSelected || _isSavingFlowMode ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                          subtitle: Text("${dataset.points.length} ${LanguageHandler().translate('mapped_points')}"),
-                          trailing: _isSelectionMode
-                              ? null
-                              : Icon(
-                                  _isSavingFlowMode ? Icons.ads_click : Icons.arrow_forward_ios,
-                                  color: _isSavingFlowMode ? Colors.orange[700] : null,
-                                ),
-                          onTap: () {
-                            if (_isSavingFlowMode) {
-                              _openDatasetForSaving(dataset, widget.currentMeasurementToSave!);
-                            } else if (_isSelectionMode) {
-                              _toggleSelection(dataset.id);
-                            } else {
-                              _openDataset(dataset);
-                            }
-                          },
-                          onLongPress: () {
-                            _toggleSelection(dataset.id);
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
-          floatingActionButton: _isSelectionMode
-              ? null
-              : FloatingActionButton(
-                  backgroundColor: _isSavingFlowMode ? Colors.orange[700] : Colors.green,
-                  foregroundColor: Colors.white,
-                  shape: const CircleBorder(),
-                  onPressed: _createNewDatasetDialog,
-                  child: const Icon(Icons.add),
-                ),
-        );
-      },
-    );
-  }
-
-  void _openDatasetForSaving(DataSet dataset, MeasurementPoint measurement) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _DatasetMapScreen(
-          dataset: dataset,
-          pendingMeasurement: measurement,
-        ),
-      ),
-    );
-  }
-
-  void _openDataset(DataSet dataset) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _DatasetMapScreen(dataset: dataset),
-      ),
-    );
-  }
-
   void _toggleSelection(String id) {
     if (_isSavingFlowMode) return;
     setState(() {
-      if (_selectedDatasetIds.contains(id)) {
-        _selectedDatasetIds.remove(id);
-      } else {
-        _selectedDatasetIds.add(id);
-      }
+      _selectedDatasetIds.contains(id) 
+          ? _selectedDatasetIds.remove(id) 
+          : _selectedDatasetIds.add(id);
     });
   }
 
-  void _exportSelectedDatasets() async {
-    showDialog(
+  Future<void> _exportSelectedDatasets() async {
+  // Exibe opções de ação para o usuário
+  final String? choice = await showModalBottomSheet<String>(
     context: context,
-    barrierDismissible: false,
-    builder: (context) => const Center(child: CircularProgressIndicator()),
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.download, color: Colors.blue),
+            title: const Text('Salvar no Dispositivo (Downloads)'),
+            onTap: () => Navigator.pop(ctx, 'save'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.share, color: Colors.green),
+            title: const Text('Compartilhar com outro aplicativo'),
+            onTap: () => Navigator.pop(ctx, 'share'),
+          ),
+        ],
+      ),
+    ),
   );
 
-  try {
-      final db = await DB.instance.getDatabase;
-      List<Map<String, dynamic>> exportData = [];
+  if (choice == null) return;
 
-      // 1. Busca detalhadamente cada dataset selecionado no banco de dados
-      for (String datasetId in _selectedDatasetIds) {
-        // Busca o Dataset
-        final List<Map<String, dynamic>> datasetMap = await db.query(
-          'dataset',
-          where: 'id = ?',
-          whereArgs: [datasetId],
-        );
+  _showLoadingDialog();
 
-        if (datasetMap.isEmpty) continue;
-        Map<String, dynamic> datasetJson = Map<String, dynamic>.from(datasetMap.first);
-
-        // Busca os Pontos do Dataset
-        final List<Map<String, dynamic>> pointsMap = await db.query(
-          'measurement_point',
-          where: 'dataset_id = ?',
-          whereArgs: [datasetId],
-        );
-
-        List<Map<String, dynamic>> pointsJsonList = [];
-
-        for (var pointRow in pointsMap) {
-          Map<String, dynamic> pointJson = Map<String, dynamic>.from(pointRow);
-          String pointId = pointRow['id'];
-
-          // Busca as Medições do Ponto
-          final List<Map<String, dynamic>> measurementsMap = await db.query(
-            'measurement_data',
-            where: 'point_id = ?',
-            whereArgs: [pointId],
-          );
-
-          // Decodifica as strings JSON salvas no banco de volta para estruturas de lista nativas
-          List<Map<String, dynamic>> measurementsJsonList = measurementsMap.map((m) {
-            return {
-              'id': m['id'],
-              'real': jsonDecode(m['real'] ?? '[]'),
-              'imag': jsonDecode(m['imag'] ?? '[]'),
-              'freq': jsonDecode(m['freq'] ?? '[]'),
-            };
-          }).toList();
-
-          pointJson['measurements'] = measurementsJsonList;
-          pointsJsonList.add(pointJson);
-        }
-
-        datasetJson['points'] = pointsJsonList;
-        exportData.add(datasetJson);
+    try {
+      bool success = false;
+      if (choice == 'save') {
+        success = await _exportService.saveDatasetsToDevice(_selectedDatasetIds);
+      } else if (choice == 'share') {
+        success = await _exportService.shareDatasets(_selectedDatasetIds);
       }
 
-      // Fecha o modal de carregamento
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context); // Fecha loading
 
-      if (exportData.isEmpty) return;
-
-      // 2. Converte a estrutura final para uma String JSON formatada
-      String jsonString = const JsonEncoder.withIndent('  ').convert(exportData);
-
-      // 3. Grava em um arquivo temporário no dispositivo
-      final directory = await getTemporaryDirectory();
-      final String filePath = '${directory.path}/eprobe_export_${DateTime.now().millisecondsSinceEpoch}.json';
-      final File file = File(filePath);
-      await file.writeAsString(jsonString);
-
-      final result = await Share.shareXFiles(
-        [XFile(filePath, mimeType: 'application/json')],
-        text: 'Exportação de Datasets do eProbe',
-      );
-
-      if (result.status == ShareResultStatus.success) {
+      if (success) {
         setState(() => _selectedDatasetIds.clear());
+        _showSnackBar(
+          choice == 'save' ? 'Arquivo salvo com sucesso!' : 'Exportado com sucesso!', 
+          Colors.green,
+        );
       }
-
     } catch (e) {
       if (mounted) Navigator.pop(context);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("${LanguageHandler().translate('export_failed')}: $e"), backgroundColor: Colors.red),
+      _showSnackBar("Erro ao exportar: $e", Colors.red);
+    }
+  }
+
+  Future<void> _importDataset() async {
+    _showLoadingDialog();
+
+    try {
+      final bool success = await ref.read(datasetProvider.notifier).importDataset();
+      if (mounted) Navigator.pop(context);
+
+      if (success) {
+        _showSnackBar(
+          LanguageHandler().translate('import_success'), 
+          Colors.green,
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      _showSnackBar(
+        "${LanguageHandler().translate('import_failed')}: $e", 
+        Colors.red,
       );
     }
   }
 
-  // --- INTERAÇÃO COM BANCO: DELETAR DATASET(S) ---
-  void _deleteSelectedDatasets() {
-    showDialog(
+  Future<void> _deleteSelectedDatasets() async {
+    final bool? confirm = await showDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(LanguageHandler().translate('delete_datasets')),// Text("Excluir Datasets"),
-          content: Text("${LanguageHandler().translate('confirm_delete')} ${_selectedDatasetIds.length} dataset(s)?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(LanguageHandler().translate('cancel')),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-              onPressed: () async {
-                final db = await DB.instance.getDatabase;
-                
-                // Transação segura para deletar em lote
-                await db.transaction((txn) async {
-                  for (String id in _selectedDatasetIds) {
-                    await txn.delete('dataset', where: 'id = ?', whereArgs: [id]);
-                  }
-                });
-
-                // Atualiza o notifier buscando os dados atualizados do banco
-                await loadCurrentSessionDatasets();
-                
-                if (mounted) {
-                  setState(() => _selectedDatasetIds.clear());
-                  Navigator.pop(context);
-                }
-              },
-              child: Text(LanguageHandler().translate('delete')),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // --- INTERAÇÃO COM BANCO: CRIAR DATASET ---
-  void _createNewDatasetDialog() {
-    final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController();
-    String selectedImagePath = "assets/images/standard_fish.png";
-    final ImagePicker picker = ImagePicker();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Future<void> pickImage() async {
-              final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-              if (image != null) {
-                setDialogState(() => selectedImagePath = image.path);
-              }
-            }
-
-            return AlertDialog(
-              title: Text(LanguageHandler().translate('new_dataset')),
-              content: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextFormField(
-                        controller: nameController,
-                        decoration: InputDecoration(labelText: LanguageHandler().translate('dataset_name')),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? "Insira um nome." : null,
-                      ),
-                      const SizedBox(height: 16),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: _buildDatasetImage(selectedImagePath, width: 150, height: 100, fit: BoxFit.cover),
-                      ),
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: pickImage,
-                        icon: const Icon(Icons.photo_library),
-                        label: Text(LanguageHandler().translate('select_picture')),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: Text(LanguageHandler().translate('cancel'))),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (formKey.currentState!.validate()) {
-                      final db = await DB.instance.getDatabase;
-
-                      // Garante que existe ao menos uma sessão no banco para vincular o Dataset
-                      List<Map<String, dynamic>> sessions = await db.query('measurement_session', limit: 1);
-                      String sessionId;
-                      
-                      if (sessions.isEmpty) {
-                        sessionId = "session_${DateTime.now().millisecondsSinceEpoch}";
-                        await db.insert('measurement_session', {
-                          'id': sessionId,
-                          'name': 'Sessão Padrão',
-                          'created_at': DateTime.now().toIso8601String(),
-                        });
-                      } else {
-                        sessionId = sessions.first['id'];
-                      }
-
-                      String newDatasetId = "fish_${DateTime.now().millisecondsSinceEpoch}";
-
-                      // Salva no SQLite
-                      await db.insert('dataset', {
-                        'id': newDatasetId,
-                        'name': nameController.text.trim(),
-                        'image_path': selectedImagePath,
-                        'session_id': sessionId,
-                      });
-
-                      // Sincroniza a UI reativamente do Banco de Dados
-                      await loadCurrentSessionDatasets();
-
-                      if (mounted) Navigator.pop(context);
-                    }
-                  },
-                  child: Text(LanguageHandler().translate('create')),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildDatasetImage(String path, {required double width, required double height, required BoxFit fit}) {
-    if (path.startsWith('assets/')) {
-      return Image.asset(path, width: width, height: height, fit: fit, errorBuilder: (c, e, s) => _buildImageError(width, height));
-    }
-    return Image.file(File(path), width: width, height: height, fit: fit, errorBuilder: (c, e, s) => _buildImageError(width, height));
-  }
-
-  Widget _buildImageError(double width, double height) {
-    return Container(width: width, height: height, color: Colors.grey[300], child: const Icon(Icons.image_not_supported));
-  }
-}
-
-// ==========================================
-// MAPA INTERATIVO DO DATASET
-// ==========================================
-class _DatasetMapScreen extends StatefulWidget {
-  final DataSet dataset;
-  final MeasurementPoint? pendingMeasurement;
-
-  const _DatasetMapScreen({
-    required this.dataset,
-    this.pendingMeasurement,
-  });
-
-  @override
-  State<_DatasetMapScreen> createState() => _DatasetMapScreenState();
-}
-
-class _DatasetMapScreenState extends State<_DatasetMapScreen> {
-  bool get _isSavingMode => widget.pendingMeasurement != null;
-
-  void _handleImageTap(TapUpDetails details, double finalWidth, double finalHeight) {
-    if (!_isSavingMode) return;
-
-    final double relativeX = double.parse((details.localPosition.dx / finalWidth).toStringAsFixed(3));
-    final double relativeY = double.parse((details.localPosition.dy / finalHeight).toStringAsFixed(3));
-
-    _showNamePointDialog(relativeX, relativeY);
-  }
-
-  // --- INTERAÇÃO COM BANCO: SALVAR PONTO E MEDIÇÃO COMPLETA ---
-  void _showNamePointDialog(double x, double y) {
-    final nameController = TextEditingController();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(LanguageHandler().translate('name_measurement_point')),
-          content: TextField(
-            controller: nameController,
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text(LanguageHandler().translate('cancel'))),
-            ElevatedButton(
-              onPressed: () async {
-                final label = nameController.text.trim();
-                if (label.isEmpty) return;
-
-                final db = await DB.instance.getDatabase;
-                final String pointId = "point_${DateTime.now().millisecondsSinceEpoch}";
-                final String measurementId = "meas_${DateTime.now().millisecondsSinceEpoch}";
-
-                // Executa tudo em uma transação atômica segura
-                await db.transaction((txn) async {
-                  // 1. Insere o Ponto de medição no mapa
-                  await txn.insert('measurement_point', {
-                    'id': pointId,
-                    'label': label,
-                    'x': x,
-                    'y': y,
-                    'timestamp': DateTime.now().toIso8601String(),
-                    'dataset_id': widget.dataset.id,
-                    'metadata': null,
-                  });
-
-                  // 2. Insere os arrays brutos convertidos em JSON string
-                  await txn.insert('measurement_data', {
-                    'id': measurementId,
-                    'point_id': pointId,
-                    'real': jsonEncode(widget.pendingMeasurement!.real),
-                    'imag': jsonEncode(widget.pendingMeasurement!.imag),
-                    'freq': jsonEncode(widget.pendingMeasurement!.freq),
-                  });
-                });
-
-                await loadCurrentSessionDatasets();
-
-                if (mounted) {
-                  Navigator.pop(context); // Fecha Dialog
-                  Navigator.pop(context); // Fecha Tela Mapa
-                  Navigator.pop(context); // Retorna ao Gráfico de origem
-                  
-                  ScaffoldMessenger.of(this.context).showSnackBar(
-                    SnackBar(content: Text("${LanguageHandler().translate('measurement_save_successfull')} '$label'!")),
-                  );
-                }
-              },
-              child: Text(LanguageHandler().translate('save')),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // --- INTERAÇÃO COM BANCO: DELETAR PONTO (LONG PRESS) ---
-  void _deletePointDialog(DatasetPoint point) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(LanguageHandler().translate('remove_point')),
-        // content: Text("Deseja realmente excluir o ponto '${point.label}' e todas as suas medições?"),
-        content: Text("${LanguageHandler().translate('confirm_delete')} '${point.label}' ${LanguageHandler().translate('and_measurements')}"),
+      builder: (_) => AlertDialog(
+        title: Text(LanguageHandler().translate('delete_datasets')),
+        content: Text("${LanguageHandler().translate('confirm_delete')} ${_selectedDatasetIds.length} dataset(s)?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(LanguageHandler().translate('cancel'))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(LanguageHandler().translate('cancel')),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            onPressed: () async {
-              final db = await DB.instance.getDatabase;
-              
-              // O ON DELETE CASCADE na estrutura do banco cuidará da tabela measurement_data automaticamente
-              await db.delete('measurement_point', where: 'id = ?', whereArgs: [point.id]);
-
-              await loadCurrentSessionDatasets();
-              
-              if (mounted) {
-                Navigator.pop(context);
-                // Atualiza o estado da própria tela de mapa aberta para remover o marcador visualmente
-                setState(() {
-                  widget.dataset.points.removeWhere((p) => p.id == point.id);
-                });
-              }
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: Text(LanguageHandler().translate('delete')),
           ),
         ],
       ),
     );
+
+    if (confirm == true) {
+      await ref.read(datasetProvider.notifier).deleteDatasets(_selectedDatasetIds);
+      setState(() => _selectedDatasetIds.clear());
+    }
   }
 
-  Future<void> _openMeasurement(BuildContext context, DatasetPoint point, MeasurementPoint measurement) async {
-    final iz = IzController();
-    iz.real = List.from(measurement.real);
-    iz.imag = List.from(measurement.imag);
-    iz.freq = List.from(measurement.freq);
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: Text("${widget.dataset.name} - ${point.label}")),
-          body: GraphViewScreen(
-            title: "${widget.dataset.name} - ${point.label}",
-            iz: iz,
-            xAxis: 'logarithmic',
-            historyMode: true,
-          ),
-        ),
-      ),
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    const double imageAspectRatio = 16 / 10;
+    final datasets = ref.watch(datasetProvider);
 
     return Scaffold(
       appBar: AppBar(
-        // title: Text(_isSavingMode ? "Toque na imagem para salvar" : widget.dataset.name),
-        title: Text(_isSavingMode ? LanguageHandler().translate('tap_image_save') : widget.dataset.name),
-        backgroundColor: _isSavingMode ? Colors.blue[700] : null,
-        foregroundColor: _isSavingMode ? Colors.white : null,
+        leading: (_isSelectionMode || _isSavingFlowMode)
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  if (_isSavingFlowMode) {
+                    Navigator.pop(context);
+                  } else {
+                    setState(() => _selectedDatasetIds.clear());
+                  }
+                },
+              )
+            : null,
+        title: Text(
+          _isSavingFlowMode
+              ? LanguageHandler().translate('select_target_dataset')
+              : _isSelectionMode
+                  ? '${_selectedDatasetIds.length} ${LanguageHandler().translate('selected').toLowerCase()}'
+                  : LanguageHandler().translate('recorded_measurements'),
+        ),
+        backgroundColor: _isSavingFlowMode ? Colors.blue[700] : null,
+        foregroundColor: _isSavingFlowMode ? Colors.white : null,
+        actions: [
+          if (_isSelectionMode) ...[
+            IconButton(
+              icon: const Icon(Icons.ios_share),
+              onPressed: _exportSelectedDatasets,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: _deleteSelectedDatasets,
+            ),
+          ]
+          //  else if (!_isSavingFlowMode) ...[
+          //   IconButton(
+          //     icon: const Icon(Icons.file_upload_outlined),
+          //     tooltip: LanguageHandler().translate('import'),
+          //     onPressed: _importDataset,
+          //   ),
+          // ]
+        ],
       ),
       body: Column(
         children: [
-          if (_isSavingMode)
-            Container(
-              color: Colors.orange[100],
-              width: double.infinity,
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                // "Modo de Gravação: Toque em um local livre para vincular a medição.",
-                LanguageHandler().translate("recording_mode_save_measurement"),
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
-              ),
-            ),
+          if (_isSavingFlowMode) _buildSavingBanner(),
           Expanded(
-            child: Center(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  double finalWidth = constraints.maxWidth;
-                  double finalHeight = constraints.maxWidth / imageAspectRatio;
-
-                  if (finalHeight > constraints.maxHeight) {
-                    finalHeight = constraints.maxHeight;
-                    finalWidth = constraints.maxHeight * imageAspectRatio;
-                  }
-
-                  return Container(
-                    width: finalWidth,
-                    height: finalHeight,
-                    color: Colors.black12,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Positioned.fill(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onTapUp: (details) => _handleImageTap(details, finalWidth, finalHeight),
-                            child: widget.dataset.imagePath.startsWith('assets/')
-                                ? Image.asset(widget.dataset.imagePath, fit: BoxFit.fill)
-                                : Image.file(
-                                    File(widget.dataset.imagePath),
-                                    fit: BoxFit.fill,
-                                    errorBuilder: (c, e, s) => Container(
-                                      color: Colors.grey[300],
-                                      child: const Icon(Icons.broken_image, size: 50),
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        ...widget.dataset.points.map((point) {
-                          const double markerSize = 34.0;
-                          return Positioned(
-                            left: (finalWidth * point.x) - (markerSize / 2),
-                            top: (finalHeight * point.y) - (markerSize / 2),
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                if (_isSavingMode) return;
-                                if (point.measurements.isEmpty) return;
-                                _openMeasurement(context, point, point.measurements.first);
-                              },
-                              onLongPress: () {
-                                if (_isSavingMode) return;
-                                _deletePointDialog(point); // Implementado a remoção
-                              },
-                              child: Container(
-                                width: markerSize,
-                                height: markerSize,
-                                color: Colors.transparent,
-                                child: Center(
-                                  child: Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      borderRadius: BorderRadius.circular(100),
-                                      border: Border.all(color: Colors.white, width: 2),
-                                      boxShadow: const [BoxShadow(blurRadius: 6, color: Colors.black26)],
-                                    ),
-                                    child: const Icon(Icons.circle, size: 8, color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ],
+            child: datasets.isEmpty
+                ? Center(
+                    child: Text(
+                      LanguageHandler().translate('no_datasets'),
+                      style: const TextStyle(color: Colors.grey),
                     ),
-                  );
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: datasets.length,
+                    itemBuilder: (context, index) {
+                      final dataset = datasets[index];
+                      final isSelected = _selectedDatasetIds.contains(dataset.id);
+                      return DatasetCard(
+                        dataset: dataset,
+                        isSelected: isSelected,
+                        isSavingFlowMode: _isSavingFlowMode,
+                        isSelectionMode: _isSelectionMode,
+                        onTap: () {
+                          if (_isSavingFlowMode) {
+                            _navigateToMap(dataset, pendingMeasurement: widget.currentMeasurementToSave);
+                          } else if (_isSelectionMode) {
+                            _toggleSelection(dataset.id);
+                          } else {
+                            _navigateToMap(dataset);
+                          }
+                        },
+                        onLongPress: () => _toggleSelection(dataset.id),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+      floatingActionButton: _isSelectionMode
+          ? null
+          : FloatingActionButton(
+              backgroundColor: _isSavingFlowMode ? Colors.orange[700] : Colors.green,
+              foregroundColor: Colors.white,
+              shape: const CircleBorder(),
+              onPressed: () => _showAddOptionsModal(context),
+              child: const Icon(Icons.add),
+            ),
+    );
+  }
+
+  /// Exibe o Modal Bottom Sheet para escolher entre criar do zero ou importar
+  void _showAddOptionsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Colors.green,
+                  child: Icon(Icons.add, color: Colors.white),
+                ),
+                title: Text(
+                  LanguageHandler().translate('create_new_dataset'),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showCreateDatasetDialog(context);
                 },
               ),
+              const Divider(),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Colors.blue,
+                  child: Icon(Icons.file_upload, color: Colors.white),
+                ),
+                title: Text(
+                  LanguageHandler().translate('import_dataset'),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _importDataset();
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSavingBanner() {
+    return Container(
+      color: Colors.orange[100],
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              LanguageHandler().translate('touch_dataset'),
+              style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87, fontSize: 13),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  void _navigateToMap(DataSet dataset, {MeasurementPoint? pendingMeasurement}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DatasetMapScreen(dataset: dataset, pendingMeasurement: pendingMeasurement),
+      ),
+    );
+  }
+
+  void _showSnackBar(String text, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text), backgroundColor: color),
+    );
+  }
+
+  void _showCreateDatasetDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => const _CreateDatasetDialog(),
+    );
+  }
+}
+
+// ============================================================================
+// DATASET CARD WIDGET
+// ============================================================================
+
+class DatasetCard extends StatelessWidget {
+  final DataSet dataset;
+  final bool isSelected;
+  final bool isSavingFlowMode;
+  final bool isSelectionMode;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const DatasetCard({
+    super.key,
+    required this.dataset,
+    required this.isSelected,
+    required this.isSavingFlowMode,
+    required this.isSelectionMode,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: isSelected ? 6 : 3,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: isSelected
+          ? RoundedRectangleBorder(
+              side: const BorderSide(color: Colors.green, width: 2),
+              borderRadius: BorderRadius.circular(12),
+            )
+          : isSavingFlowMode
+              ? RoundedRectangleBorder(
+                  side: BorderSide(color: Colors.orange[300]!, width: 1.5),
+                  borderRadius: BorderRadius.circular(12),
+                )
+              : null,
+      color: isSelected ? Colors.green[50] : null,
+      child: ListTile(
+        leading: isSelected
+            ? const SizedBox(
+                width: 60,
+                child: Icon(Icons.check_circle, color: Colors.green),
+              )
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: _buildImage(dataset.imagePath, 80, 60),
+              ),
+        title: Text(
+          dataset.name,
+          style: TextStyle(
+            fontWeight: isSelected || isSavingFlowMode ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        subtitle: Text("${dataset.points.length} ${LanguageHandler().translate('mapped_points')}"),
+        trailing: isSelectionMode
+            ? null
+            : Icon(
+                isSavingFlowMode ? Icons.ads_click : Icons.arrow_forward_ios,
+                color: isSavingFlowMode ? Colors.orange[700] : null,
+              ),
+        onTap: onTap,
+        onLongPress: onLongPress,
+      ),
+    );
+  }
+
+  Widget _buildImage(String path, double width, double height) {
+    if (path.startsWith('assets/')) {
+      return Image.asset(path, width: width, height: height, fit: BoxFit.cover, errorBuilder: (_, _, _) => _errorBox(width, height));
+    }
+    return Image.file(File(path), width: width, height: height, fit: BoxFit.cover, errorBuilder: (_, _, _) => _errorBox(width, height));
+  }
+
+  Widget _errorBox(double width, double height) {
+    return Container(width: width, height: height, color: Colors.grey[300], child: const Icon(Icons.image_not_supported));
+  }
+}
+
+// ============================================================================
+// CREATE DATASET DIALOG WIDGET
+// ============================================================================
+
+class _CreateDatasetDialog extends ConsumerStatefulWidget {
+  const _CreateDatasetDialog();
+
+  @override
+  ConsumerState<_CreateDatasetDialog> createState() => _CreateDatasetDialogState();
+}
+
+class _CreateDatasetDialogState extends ConsumerState<_CreateDatasetDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  String _selectedImagePath = "assets/images/standard_fish.png";
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final image = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() => _selectedImagePath = image.path);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(LanguageHandler().translate('new_dataset')),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _nameController,
+                decoration: InputDecoration(labelText: LanguageHandler().translate('dataset_name')),
+                validator: (v) => (v == null || v.trim().isEmpty) ? "Insira um nome." : null,
+              ),
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: _selectedImagePath.startsWith('assets/')
+                    ? Image.asset(_selectedImagePath, width: 150, height: 100, fit: BoxFit.cover)
+                    : Image.file(File(_selectedImagePath), width: 150, height: 100, fit: BoxFit.cover),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _pickImage,
+                icon: const Icon(Icons.photo_library),
+                label: Text(LanguageHandler().translate('select_picture')),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(LanguageHandler().translate('cancel'))),
+        ElevatedButton(
+          onPressed: () async {
+            if (_formKey.currentState!.validate()) {
+              await ref.read(datasetProvider.notifier).createDataset(
+                    name: _nameController.text.trim(),
+                    imagePath: _selectedImagePath,
+                  );
+              if (mounted) Navigator.pop(context);
+            }
+          },
+          child: Text(LanguageHandler().translate('create')),
+        ),
+      ],
     );
   }
 }

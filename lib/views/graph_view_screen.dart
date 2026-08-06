@@ -232,13 +232,13 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
     final List<ChartData> imagData = imagSpots.map((e) => ChartData(e.x, e.y)).toList();
     final List<ChartData> magnitudeData = calcularMagnitude(realData, imagData);
 
-    final List<ChartData> nyquistSpots = List.generate(
-    realData.length < imagData.length ? realData.length : imagData.length,
-    (i) => ChartData(
-      realData[i].y,            // Eixo X: Real (Resistência R)
-      imagData[i].y * -1      // Eixo Y: -Imag (Reatância Xc positiva)
-    ),
-    );
+    // final List<ChartData> nyquistSpots = List.generate(
+    // realData.length < imagData.length ? realData.length : imagData.length,
+    // (i) => ChartData(
+    //   realData[i].y,            // Eixo X: Real (Resistência R)
+    //   imagData[i].y * -1      // Eixo Y: -Imag (Reatância Xc positiva)
+    // ),
+    // );
 
     if (widget.iz.freq.isEmpty) {
       return Center(

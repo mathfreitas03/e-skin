@@ -3,6 +3,7 @@ import 'package:eprobe/controllers/language_handler.dart';
 import 'package:eprobe/models/found_ble_device.dart';
 import 'package:eprobe/widgets/device_card.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'controllers/ble_controller.dart';
 import 'package:eprobe/permissions.dart';
 import 'dart:async';
@@ -20,16 +21,17 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   await enableBluetooth();
-
-  // Configurações escolhidas pelo usuário. Semelhante a lógica dos cookies na web
-
   final configs = AppConfigs();
   await configs.init();
-  
   final languageHandler = LanguageHandler();
   await languageHandler.init();
   
-  runApp(const MyApp());
+  
+  runApp(
+    const ProviderScope( // Requerido pelo Riverpod
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

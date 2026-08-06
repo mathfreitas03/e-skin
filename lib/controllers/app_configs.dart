@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AppConfigs {
   static const String _keyLanguage = 'app_language';
   static const String _keyTempScale = 'app_temp_scale';
-
+  late bool isDriveBackupEnabled;
   late String language;  
   late String temperatureScale;
 
@@ -15,8 +15,8 @@ class AppConfigs {
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    
     language = prefs.getString(_keyLanguage) ?? 'pt_BR';
+    isDriveBackupEnabled = prefs.getBool('drive_backup_enabled') ?? false;
     temperatureScale = prefs.getString(_keyTempScale) ?? 'Celsius';
   }
 
@@ -24,6 +24,11 @@ class AppConfigs {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLanguage, newLanguage);
     language = newLanguage;
+  }
+
+  Future<void> setDriveBackupEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('drive_backup_enabled', value);
   }
 
   Future<void> setTemperatureScale(String newScale) async {

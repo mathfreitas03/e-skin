@@ -2,7 +2,6 @@ import 'package:eprobe/models/dataset.dart';
 import 'package:eprobe/models/dataset_point.dart';
 import 'package:eprobe/models/measurement_point.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite/sqlite_api.dart';
 import 'package:path/path.dart';
 
 class DB {
@@ -23,6 +22,15 @@ class DB {
       version: 1,
       onCreate: _onCreate,
     );
+  }
+
+  Future<void> closeAndReset() async {
+    if (_database != null) {
+      if (_database!.isOpen) {
+        await _database!.close();
+      }
+      _database = null;
+    }
   }
 
   _onCreate(db, db_version) async{

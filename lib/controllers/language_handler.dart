@@ -16,17 +16,16 @@ class LanguageHandler extends ChangeNotifier {
     // Pega o idioma atual salvo na cache (Ex: "pt_BR")
     String currentLanguage = AppConfigs().language;
 
-    try {
-      String jsonString = await rootBundle.loadString('assets/lang/$currentLanguage.json');
-            Map<String, dynamic> jsonMap = json.decode(jsonString);
+    
+    String jsonString = await rootBundle.loadString('assets/lang/$currentLanguage.json');
+          Map<String, dynamic> jsonMap = json.decode(jsonString);
 
-      _localizedStrings = jsonMap.map((key, value) {
-        return MapEntry(key, value.toString());
-      });
+    _localizedStrings = jsonMap.map((key, value) {
+      return MapEntry(key, value.toString());
+    });
 
-      notifyListeners();
-    } catch (e) {
-    }
+    notifyListeners();
+    
   }
 
   String translate(String key) {

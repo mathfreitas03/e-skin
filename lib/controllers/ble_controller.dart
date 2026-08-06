@@ -1,4 +1,5 @@
 import 'package:eprobe/models/found_ble_device.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -63,11 +64,11 @@ class BleController {
     );
 
     if (status != BleStatus.ready) {
-      print("Bluetooth não está pronto: $status");
+      debugPrint("Bluetooth não está pronto: $status");
       return false;
     }
 
-    print("Bluetooth pronto, iniciando scan...");
+    debugPrint("Bluetooth pronto, iniciando scan...");
     bool found = false;
 
     final subscription = ble.scanForDevices(withServices: []).listen((device) {
@@ -87,7 +88,7 @@ class BleController {
 
   Future<bool> connect(FoundBleDevice device) async {
     if (_isConnecting) {
-      print("Já existe uma tentativa de conexão em andamento...");
+      debugPrint("Já existe uma tentativa de conexão em andamento...");
       return false;
     }
 
@@ -111,12 +112,12 @@ class BleController {
           .listen((update) async {
         switch (update.connectionState) {
           case DeviceConnectionState.connecting:
-            print("Conectando a ${device.discoveredDevice.name}...");
+            debugPrint("Conectando a ${device.discoveredDevice.name}...");
             _connectionController.add(BleConnectionStatus.connecting);
             break;
 
           case DeviceConnectionState.connected:
-            print("Conectado com sucesso!");
+            debugPrint("Conectado com sucesso!");
             _isConnecting = false; // Libera o estado
             _connectionController.add(BleConnectionStatus.connected);
             _rxBuffer = ""; 
@@ -126,24 +127,24 @@ class BleController {
             break;
 
           case DeviceConnectionState.disconnecting:
-            print("Desconectando...");
+            debugPrint("Desconectando...");
             break;
 
           case DeviceConnectionState.disconnected:
-            print("Desconectado!");
+            debugPrint("Desconectado!");
             _isConnecting = false; // Libera o estado
             _cleanupOnDisconnect();
             break;
         }
       }, onError: (Object error) {
-        print("Erro no stream de conexão: $error");
+        debugPrint("Erro no stream de conexão: $error");
         _isConnecting = false;
         _cleanupOnDisconnect();
       });
 
       return true;
     } catch (e) {
-      print("Erro inicial de conexão: $e");
+      debugPrint("Erro inicial de conexão: $e");
       _isConnecting = false;
       _cleanupOnDisconnect();
       return false;
@@ -153,9 +154,9 @@ class BleController {
   void negotiateMTU(FlutterReactiveBle connection, String deviceId, {int mtu = 512}) async {
     try {
       await connection.requestMtu(deviceId: deviceId, mtu: mtu);
-      print("MTU negociado: $mtu");
+      debugPrint("MTU negociado: $mtu");
     } catch (e) {
-      print("Error negotiating MTU: $e");
+      debugPrint("Error negotiating MTU: $e");
     }
   }
 
@@ -189,7 +190,7 @@ class BleController {
         }
       },
       onError: (Object e) {
-        print("Erro na notificação: $e");
+        debugPrint("Erro na notificação: $e");
       },
     );
   }
