@@ -331,7 +331,7 @@ Future<void> _checkAutoSync() async {
           ),
           // MODO PRODUÇÃO EM TEMPO REAL: 
           SizedBox(
-            height: 520,
+            height: MediaQuery.of(context).size.height * 0.68,
             width: double.infinity,
             child: GraphViewScreen(
               iz: iz,
@@ -361,12 +361,17 @@ Future<void> _checkAutoSync() async {
               leading: const Icon(Icons.tune),
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(left: 12, right: 12, bottom: 16, top: 4),
+                  padding: const EdgeInsets.only(left: 12, right: 12, bottom: 4, top: 4),
                   child: Center(
                     child: IzConfigCard(
                       config: iz.config,
                     ),
                   ),
+                ),
+                ElevatedButton(onPressed: () {
+                  widget.onDatasetChanged("IKF");
+                },
+                child: Text("Refresh"),
                 ),
               ],
             ),
@@ -378,7 +383,6 @@ Future<void> _checkAutoSync() async {
 
           Row(
             children: [
-
               Expanded(
                 child: Card(
                   child: Padding(
@@ -386,7 +390,6 @@ Future<void> _checkAutoSync() async {
                         const EdgeInsets.all(12),
                     child: Column(
                       children: [
-
                         Text(
                           // "Temperatura",
                           LanguageHandler().translate('temperature'),

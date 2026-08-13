@@ -371,10 +371,25 @@ class _GraphViewScreenState extends State<GraphViewScreen> {
                 /// =========================
                 /// CARD DE INSIGHTS DA BIA
                 /// =========================
-                BioinsightsCard(
-                  realData: realData,
-                  imaginaryData: imagData,
-                ),
+                Card(
+                  clipBehavior: Clip.antiAlias, // Garante que as bordas do card fiquem arredondadas
+                  child: ExpansionTile(
+                    title: Text(
+                      'Spectrum',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    leading: Icon(Icons.analytics_outlined), // Ícone opcional
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: BioinsightsCard(
+                          realData: realData,
+                          imaginaryData: imagData,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
               ],
             ),
           ),
